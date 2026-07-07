@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+.next/
+out/
+
+# Env e segredos
+.env
+.env.local
+.env.*.local
+
+# Banco local (SQLite dev) e uploads
+*.db
+uploads/
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
