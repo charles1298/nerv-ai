@@ -1,6 +1,7 @@
 // Cliente HTTP do backend NERV AI — injeta o JWT do Zustand em toda chamada.
 
 import { useAuthStore } from "@/store/auth";
+import { DEMO, demoRequest, demoStreamChat, demoUpload } from "@/lib/demo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -14,6 +15,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Modo demonstração: responde localmente, sem backend (site público na Vercel).
+  if (DEMO) return demoRequest<T>(path, init);
+
   const token = useAuthStore.getState().accessToken;
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -219,6 +223,8 @@ export async function uploadImage(
   prompt: string,
   sessionId?: string,
 ): Promise<UploadResult> {
+  if (DEMO) return demoUpload();
+
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", file);
@@ -246,6 +252,8 @@ export async function streamChat(
   content: string,
   onChunk: (text: string) => void,
 ): Promise<void> {
+  if (DEMO) return demoStreamChat(content, onChunk);
+
   const token = useAuthStore.getState().accessToken;
   const res = await fetch(`${API_URL}/sessions/${sessionId}/chat`, {
     method: "POST",
