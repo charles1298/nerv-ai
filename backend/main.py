@@ -55,6 +55,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Sem isto o front (outra origem) não lê o nome do arquivo nos downloads de PDF.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(auth.router)

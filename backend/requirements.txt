@@ -13,6 +13,7 @@ mem0ai==0.1.98
 pgvector==0.4.1
 boto3==1.38.0
 structlog==25.3.0
+reportlab==4.4.0
 redis==5.2.1
 python-multipart==0.0.20
 email-validator==2.2.0

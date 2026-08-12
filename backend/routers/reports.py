@@ -3,12 +3,15 @@
 Isolamento multi-tenant: todas as queries filtram por school_id do usuário logado.
 """
 
+import re
+import unicodedata
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
+from urllib.parse import quote
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import case, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,12 +22,14 @@ from models import (
     Essay,
     Exercise,
     ExerciseAttempt,
+    School,
     Subject,
     Topic,
     TutoringSession,
     User,
 )
 from services.notification_service import send_email
+from services.pdf_service import school_overview_pdf, student_report_pdf
 from services.performance_service import MASTERY_MIN_ATTEMPTS, MASTERY_RATE
 
 logger = structlog.get_logger()
@@ -33,6 +38,27 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 ATTENTION_RATE = 0.6
 CRITICAL_RATE = 0.4
 INACTIVE_DAYS = 7
+
+
+def _slug(text: str) -> str:
+    """Nome de arquivo em ASCII: 'João Ção' -> 'joao-cao'."""
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-") or "relatorio"
+
+
+def _pdf_response(content: bytes, filename: str) -> Response:
+    """Anexo PDF. Manda o nome em ASCII e repete em UTF-8 (RFC 5987), porque
+    header HTTP não aceita acento e o slug perderia a grafia original."""
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{_slug(filename)}.pdf"; '
+                f"filename*=UTF-8''{quote(filename)}.pdf"
+            )
+        },
+    )
 
 
 async def _get_school_student(
@@ -177,6 +203,20 @@ async def student_report(
     }
 
 
+@router.get("/aluno/{student_id}/pdf", response_class=Response)
+async def student_report_pdf_download(
+    student_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(require_role("teacher", "manager", "admin"))],
+) -> Response:
+    """Mesmo relatório individual, diagramado em PDF para impressão."""
+    report = await student_report(student_id, db, current)
+    pdf = student_report_pdf(
+        report["student"], report["aggregates"], report["status"], report["narrative"]
+    )
+    return _pdf_response(pdf, f"relatorio-{report['student']['name']}")
+
+
 @router.get("/alertas")
 async def alerts(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -252,6 +292,19 @@ async def school_overview(
         "active_students_last_7_days": active_week or 0,
         "heatmap": heatmap,
     }
+
+
+@router.get("/escola/pdf", response_class=Response)
+async def school_overview_pdf_download(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(require_role("manager", "admin"))],
+) -> Response:
+    """Visão da escola + diagnóstico BNCC em PDF, para reuniões pedagógicas."""
+    overview = await school_overview(db, current)
+    bncc = await bncc_diagnostic(db, current)
+    school_name = await db.scalar(select(School.name).where(School.id == current.school_id))
+    pdf = school_overview_pdf(school_name or "Escola", overview, bncc)
+    return _pdf_response(pdf, f"visao-escola-{school_name or 'escola'}")
 
 
 @router.get("/bncc")
