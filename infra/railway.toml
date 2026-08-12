@@ -5,7 +5,9 @@ builder = "DOCKERFILE"
 dockerfilePath = "infra/Dockerfile.backend"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+# Migrations antes de servir: com APP_ENV=production o lifespan nao cria tabelas,
+# entao sem o upgrade o banco sobe vazio e todo request quebra.
+startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
