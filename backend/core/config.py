@@ -5,6 +5,7 @@ Todas as variáveis sensíveis vêm do ambiente (.env). Nunca hardcode segredos.
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -53,6 +54,21 @@ class Settings(BaseSettings):
     # Email (Resend — opcional; sem chave, notificações só logam)
     resend_api_key: str = ""
     email_from: str = "noreply@nerv.ai"
+
+    @field_validator("database_url")
+    @classmethod
+    def _force_async_driver(cls, url: str) -> str:
+        """Garante o driver async na URL do Postgres.
+
+        Hospedagens (Railway, Render, Heroku) injetam DATABASE_URL como
+        `postgresql://` ou `postgres://`, que o SQLAlchemy async rejeita com um
+        erro de driver pouco óbvio. Normalizar aqui evita ter que lembrar disso
+        em cada painel — e vale também para o `alembic upgrade head`.
+        """
+        for prefixo in ("postgresql://", "postgres://"):
+            if url.startswith(prefixo):
+                return "postgresql+asyncpg://" + url[len(prefixo) :]
+        return url
 
 
 @lru_cache
