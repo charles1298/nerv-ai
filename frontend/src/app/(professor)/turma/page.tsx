@@ -3,7 +3,7 @@
 // Dashboard da turma: cards por aluno ordenados por necessidade de intervenção (seção 7.2).
 
 import { useEffect, useState } from "react";
-import { api, type StudentCard, type StudentReport } from "@/lib/api";
+import { ApiError, api, type StudentCard, type StudentReport } from "@/lib/api";
 
 const STATUS_STYLE: Record<StudentCard["status"], string> = {
   critico: "border-red-500/60 bg-red-500/5",
@@ -21,6 +21,7 @@ export default function TurmaPage() {
   const [cards, setCards] = useState<StudentCard[]>([]);
   const [report, setReport] = useState<StudentReport | null>(null);
   const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +37,19 @@ export default function TurmaPage() {
       setError("Falha ao gerar relatório do aluno.");
     } finally {
       setLoadingReport(null);
+    }
+  };
+
+  const downloadPdf = async (studentId: string, studentName: string) => {
+    setDownloading(studentId);
+    setError(null);
+    try {
+      await api.studentReportPdf(studentId, studentName);
+    } catch (e) {
+      // O modo demonstração explica a ausência do backend na própria mensagem.
+      setError(e instanceof ApiError ? e.message : "Falha ao baixar o PDF do relatório.");
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -65,13 +79,23 @@ export default function TurmaPage() {
                 <p className="text-red-400">Dificuldade: {c.struggling_topics.join(", ")}</p>
               )}
             </div>
-            <button
-              onClick={() => void openReport(c.student_id)}
-              disabled={loadingReport === c.student_id}
-              className="mt-3 w-full rounded-lg bg-nerv-purple px-3 py-1.5 font-display text-xs font-medium transition hover:bg-nerv-purple-dim disabled:opacity-50"
-            >
-              {loadingReport === c.student_id ? "Gerando relatório..." : "Relatório completo"}
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => void openReport(c.student_id)}
+                disabled={loadingReport === c.student_id}
+                className="flex-1 rounded-lg bg-nerv-purple px-3 py-1.5 font-display text-xs font-medium transition hover:bg-nerv-purple-dim disabled:opacity-50"
+              >
+                {loadingReport === c.student_id ? "Gerando relatório..." : "Relatório completo"}
+              </button>
+              <button
+                onClick={() => void downloadPdf(c.student_id, c.name)}
+                disabled={downloading === c.student_id}
+                title={`Baixar relatório de ${c.name} em PDF`}
+                className="rounded-lg border border-nerv-purple/60 px-3 py-1.5 font-display text-xs font-medium transition hover:bg-nerv-purple/20 disabled:opacity-50"
+              >
+                {downloading === c.student_id ? "..." : "PDF"}
+              </button>
+            </div>
           </div>
         ))}
         {cards.length === 0 && !error && (

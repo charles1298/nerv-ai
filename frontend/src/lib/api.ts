@@ -42,6 +42,44 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Lê o nome do arquivo do Content-Disposition, preferindo a forma UTF-8 (RFC 5987). */
+function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8) return decodeURIComponent(utf8[1]);
+  const ascii = /filename="([^"]+)"/i.exec(header);
+  return ascii ? ascii[1] : null;
+}
+
+/** Baixa um PDF autenticado e dispara o download no navegador. */
+async function downloadPdf(path: string, fallbackName: string): Promise<void> {
+  if (DEMO) {
+    throw new ApiError(
+      503,
+      "A exportação em PDF é gerada pelo backend, que não está ativo no modo demonstração.",
+    );
+  }
+
+  const token = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(res.status, body.detail ?? `Erro ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filenameFromDisposition(res.headers.get("content-disposition")) ?? fallbackName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;
@@ -212,7 +250,10 @@ export const api = {
   listEssays: () => request<EssayPublic[]>("/redacoes"),
   classDashboard: () => request<StudentCard[]>("/reports/turma"),
   studentReport: (studentId: string) => request<StudentReport>(`/reports/aluno/${studentId}`),
+  studentReportPdf: (studentId: string, studentName: string) =>
+    downloadPdf(`/reports/aluno/${studentId}/pdf`, `relatorio-${studentName}.pdf`),
   schoolOverview: () => request<SchoolOverview>("/reports/escola"),
+  schoolOverviewPdf: () => downloadPdf("/reports/escola/pdf", "visao-escola.pdf"),
   bnccDiagnostic: () => request<BnccDiagnostic[]>("/reports/bncc"),
   exportMyData: () => request<Record<string, unknown>>("/lgpd/export"),
 };

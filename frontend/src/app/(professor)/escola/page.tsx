@@ -3,7 +3,7 @@
 // Visão da escola para o gestor: heatmap de desempenho + diagnóstico BNCC (seção 7.3).
 
 import { useEffect, useState } from "react";
-import { api, type BnccDiagnostic, type SchoolOverview } from "@/lib/api";
+import { ApiError, api, type BnccDiagnostic, type SchoolOverview } from "@/lib/api";
 
 function heatColor(rate: number | null): string {
   if (rate === null) return "bg-nerv-border";
@@ -16,6 +16,7 @@ function heatColor(rate: number | null): string {
 export default function EscolaPage() {
   const [overview, setOverview] = useState<SchoolOverview | null>(null);
   const [bncc, setBncc] = useState<BnccDiagnostic[]>([]);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,9 +24,32 @@ export default function EscolaPage() {
     api.bnccDiagnostic().then(setBncc).catch(() => undefined);
   }, []);
 
+  const downloadPdf = async () => {
+    setDownloading(true);
+    setError(null);
+    try {
+      await api.schoolOverviewPdf();
+    } catch (e) {
+      // O modo demonstração explica a ausência do backend na própria mensagem.
+      setError(e instanceof ApiError ? e.message : "Falha ao baixar o PDF da escola.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <h1 className="font-display text-2xl font-bold">Visão da Escola</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-bold">Visão da Escola</h1>
+        <button
+          onClick={() => void downloadPdf()}
+          disabled={downloading}
+          title="Baixar panorama e diagnóstico BNCC em PDF"
+          className="rounded-lg bg-nerv-purple px-4 py-2 font-display text-xs font-medium transition hover:bg-nerv-purple-dim disabled:opacity-50"
+        >
+          {downloading ? "Gerando PDF..." : "Baixar PDF"}
+        </button>
+      </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {overview && (
