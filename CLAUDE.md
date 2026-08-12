@@ -53,6 +53,7 @@ nerv-ai/
 │   └── services/
 │       ├── anthropic_service.py # Wrapper do Claude Fable 5
 │       ├── storage_service.py   # S3-compatible (Cloudflare R2)
+│       ├── pdf_service.py       # Relatórios em PDF (ReportLab)
 │       └── notification_service.py
 │
 ├── frontend/
@@ -107,6 +108,7 @@ nerv-ai/
 | WebSocket | FastAPI + websockets | — |
 | Vector DB | pgvector (PostgreSQL) | — |
 | Object Storage | Cloudflare R2 (boto3) | — |
+| Geração de PDF | ReportLab | 4.4.x |
 
 ### AI Stack
 | Componente | Tecnologia | Uso |
@@ -553,6 +555,23 @@ Analise esta imagem educacional. Identifique:
 - **Relatório de escola:** comparativo por turma, análise de professores, eficácia por matéria.
 - **Diagnóstico BNCC:** % de habilidades dominadas por turma/escola.
 
+**Exportação em PDF (`services/pdf_service.py`):** os relatórios saem em PDF pelo
+ReportLab — Python puro, sem dependência de sistema, ao contrário do WeasyPrint.
+
+| Endpoint | Papel | Conteúdo |
+|---|---|---|
+| `GET /reports/aluno/{student_id}/pdf` | professor, gestor, admin | Panorama, tópicos dominados/fracos e a narrativa do agente |
+| `GET /reports/escola/pdf` | gestor, admin | Panorama, heatmap série×matéria e diagnóstico BNCC |
+
+Regras do módulo:
+- O PDF é **layout claro**, não o dark mode do app — ele é impresso para reuniões.
+- Todo texto vindo do banco ou do modelo passa por `escape()`: o `Paragraph` do
+  ReportLab interpreta mini-HTML, e um `&` no nome do aluno quebraria a geração.
+- Se a narrativa do modelo falhar, o PDF sai só com os quantitativos — eles vêm do
+  banco e continuam válidos.
+- O `Content-Disposition` leva nome ASCII + `filename*` UTF-8 (RFC 5987), e o CORS
+  em `main.py` **precisa** expor esse header, senão o front baixa com nome genérico.
+
 ---
 
 ## 6. SISTEMA DE MEMÓRIA E PERSONALIZAÇÃO
@@ -734,7 +753,7 @@ RATE_LIMITS = {
 **Objetivo:** Multi-tenant, relatórios avançados, planos e billing.
 
 - [x] Interface do gestor/diretor (heatmap série×matéria, diagnóstico BNCC)
-- [x] `report_agent.py` (relatórios pedagógicos via JSON estruturado; exportação em PDF pendente — hoje o frontend renderiza e o navegador imprime)
+- [x] `report_agent.py` (relatórios pedagógicos via JSON estruturado; exportação em PDF via `services/pdf_service.py` — relatório do aluno e visão da escola, com download no frontend)
 - [x] Multi-tenancy completo (isolamento por school_id em todos os endpoints; testado)
 - [ ] Planos e billing (Stripe) — requer conta Stripe; limite de alunos por plano já é aplicado no backend
 - [x] Indexação ENEM/vestibulares no RAG (`scripts/seed_enem.py` — requer JSON com as questões extraídas)
