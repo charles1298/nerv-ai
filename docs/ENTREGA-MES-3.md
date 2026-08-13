@@ -81,7 +81,7 @@ O sistema de interação está **publicado e operacional** em nuvem:
 | Componente | Endereço | Situação |
 |---|---|---|
 | API (backend) | `https://nerv-ai-backend.vercel.app` | ✅ no ar |
-| Aplicação web | `https://nerv-ai-sandy.vercel.app` | ✅ no ar |
+| Aplicação web | `https://nerv-ai-sandy.vercel.app` | ✅ no ar, conectada à API |
 | Banco de dados | PostgreSQL gerenciado (Neon) | ✅ migrações aplicadas |
 | Repositório | `https://github.com/charles1298/nerv-ai` | ✅ versionado |
 
@@ -184,6 +184,44 @@ literal, sem edição.
 
 As quatro mensagens (duas perguntas e duas respostas) foram gravadas no banco e
 retornam em `GET /sessions/{id}/messages`, permitindo retomar a conversa depois.
+
+### 2.5 Demonstração reproduzível pela interface web
+
+O site publicado está conectado ao ambiente de produção — **qualquer pessoa pode
+reproduzir a demonstração** entrando com as credenciais da seção 3.3:
+
+1. Acessar `https://nerv-ai-sandy.vercel.app`
+2. Entrar como `aluno@demo.nerv.ai` / `aluno-demo-123`
+3. Menu **Tutoria** → digitar a pergunta
+
+Verificado pela interface em 13/08/2026 com a pergunta *"como eu começo uma
+redação?"*. Trecho da resposta recebida na tela:
+
+> Olá, João! Que excelente iniciativa a sua. Estar no 9º ano e já querer dominar a
+> arte de começar uma redação é um passo gigantesco para se dar bem no Ensino Médio
+> e, no futuro, no ENEM!
+>
+> Escrever uma redação, especialmente a do tipo **dissertativo-argumentativa** [...]
+> A introdução é a "sala de visitas": você precisa acolher o leitor, mostrar sobre o
+> que vai falar e apresentar o seu ponto de vista.
+>
+> 1. **O Repertório (ou Contextualização):** É o "gancho" para chamar a atenção do
+>    leitor. Pode ser uma alusão histórica, um livro, uma música, uma série da
+>    Netflix, um filme ou uma lei (como a nossa Constituição de 1988).
+> 2. **A Apresentação do Tema:** [...] qual é o problema real que o Brasil enfrenta
+>    hoje [...]
+> 3. **A Tese:** É a sua opinião sobre o assunto [...]
+>
+> Para você ver como não é um bicho de sete cabeças, vamos usar um tema muito
+> importante e atual, no estilo do ENEM: **"Os impactos do uso excessivo das redes
+> sociais na saúde mental dos jovens brasileiros"**. [...]
+>
+> Se você tivesse que escolher **um** desses caminhos (um filme/série, a lei ou o
+> cotidiano) para abrir o seu texto, qual você escolheria?
+
+Confirma o mesmo padrão da seção 2.3 numa terceira matéria (Língua Portuguesa):
+resposta correta, adaptada à série, com repertório brasileiro e devolvendo a
+condução ao aluno.
 
 ### 2.4 Qualidade — testes automatizados
 
