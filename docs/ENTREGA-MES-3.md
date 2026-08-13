@@ -7,6 +7,58 @@
 
 ---
 
+# 🔎 ACESSO PARA AVALIAÇÃO
+
+> ### 🌐 Sistema no ar
+> ## **https://nerv-ai-sandy.vercel.app**
+>
+> ### 🔑 Entrar como aluno
+> | Campo | Valor |
+> |---|---|
+> | **E-mail** | `aluno@demo.nerv.ai` |
+> | **Senha** | `aluno-demo-123` |
+>
+> ### 💻 Código-fonte
+> ## **https://github.com/charles1298/nerv-ai**
+
+### Como testar a IA em 4 passos
+
+| # | Ação |
+|---|---|
+| **1** | Abrir **https://nerv-ai-sandy.vercel.app** |
+| **2** | Entrar com `aluno@demo.nerv.ai` / `aluno-demo-123` |
+| **3** | Clicar em **Tutoria** no menu do topo |
+| **4** | Digitar qualquer dúvida escolar e enviar |
+
+A resposta chega **em tempo real, palavra por palavra**, gerada por inteligência
+artificial no momento da pergunta — não há respostas pré-programadas. Faça a mesma
+pergunta duas vezes e as respostas serão diferentes.
+
+**Sugestões de perguntas para testar:**
+
+- *"Quem foi Dom Pedro II e por que ele foi importante para o Brasil?"*
+- *"Como eu resolvo a equação x² - 5x + 6 = 0?"*
+- *"Como eu começo uma redação?"*
+- *"Por que o céu é azul?"*
+
+**Observações práticas:**
+
+- A **primeira** pergunta pode levar alguns segundos a mais (o servidor é acionado
+  sob demanda). As seguintes são imediatas.
+- Ao recarregar a página, a sessão é encerrada por segurança — basta entrar
+  novamente.
+
+### Acesso ao painel da gestão (opcional)
+
+Para ver os relatórios pedagógicos e a exportação em PDF:
+
+| Campo | Valor |
+|---|---|
+| **E-mail** | `admin@demo.nerv.ai` |
+| **Senha** | `admin-demo-123` |
+
+---
+
 ## 1. Entregável
 
 **Descrição do marco:** *Implementação do sistema de interação com a IA.*
