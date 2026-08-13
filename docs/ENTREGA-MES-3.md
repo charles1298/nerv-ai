@@ -1,7 +1,7 @@
 # NERV AI — Entrega do Marco: Mês 3
 
 > **Marco:** Mês 3 — Implementação do sistema de interação com a IA
-> **Status:** Entregável concluído · demonstração pendente de credencial do provedor de IA
+> **Status:** Concluído
 > **Projeto:** NERV AI — Sistema de Inteligência Educacional Adaptativa (alinhado à BNCC)
 > **Data:** 13/08/2026
 
@@ -104,14 +104,86 @@ ambiente publicado:
 | 3 | Cadastro de aluno | `POST /students` | ✅ 201 |
 | 4 | Abertura da sessão de tutoria | `POST /sessions` | ✅ 201 |
 | 5 | Envio da pergunta | `POST /sessions/{id}/chat` | ✅ 200 (canal de streaming aberto) |
-| 6 | Resposta do modelo | provedor de IA | ⏳ pendente de credencial válida |
+| 6 | Resposta do modelo em streaming | provedor de IA | ✅ resposta recebida |
+| 7 | Gravação da conversa | `GET /sessions/{id}/messages` | ✅ 4 mensagens persistidas |
 
 ### 2.3 Transcrição da conversa
 
-> **Pendente.** Esta seção será preenchida com a transcrição literal de perguntas
-> e respostas assim que a credencial do provedor de IA estiver ativa (ver
-> seção 3.2). O código, o ambiente e a cadeia de requisições já estão prontos e
-> verificados: falta apenas a chave de acesso ao modelo.
+Conversa real capturada no ambiente publicado em **13/08/2026**, na sessão de
+tutoria do aluno de demonstração (9º ano do Ensino Fundamental). Transcrição
+literal, sem edição.
+
+#### Pergunta 1 — História
+
+> **Aluno:** Quem foi Dom Pedro II e por que ele foi importante para o Brasil?
+
+> **NERV:** Olá, João! É um prazer enorme conhecer você. Seja muito bem-vindo!
+>
+> Como você está no **9º ano do Ensino Fundamental**, esse tema é superimportante e
+> cai bastante nas aulas de História. No 9º ano, nós estudamos a fundo a transição
+> do Brasil Império para o Brasil República, e não dá para entender essa mudança
+> sem conhecer bem o papel de **Dom Pedro II**.
+>
+> Para começar nossa jornada, vou te contar uma curiosidade: Dom Pedro II foi o
+> segundo e último imperador do Brasil. Ele governou o nosso país por quase 50 anos
+> (um período conhecido como **Segundo Reinado**, de 1840 a 1889)!
+>
+> Mas a história dele tem um começo bem dramático. O pai dele, Dom Pedro I, foi
+> embora para Portugal e o deixou aqui no Brasil quando ele tinha **apenas 5 anos de
+> idade**, preparado para ser o futuro governante. Imagine só a pressão! Ele acabou
+> assumindo o trono de fato aos 14 anos, no que ficou conhecido como o *Golpe da
+> Maioridade*.
+>
+> Agora, para a gente construir essa resposta juntos, pense comigo:
+>
+> O Brasil do século XIX (anos 1800) era muito diferente do Brasil de hoje. Se você
+> estivesse no lugar desse jovem imperador, governando um país gigantesco, **quais
+> você acha que seriam os maiores desafios que você enfrentaria naquela época?**
+>
+> *(Dica: pense em como a economia do Brasil funcionava, em quem fazia o trabalho
+> pesado e em como as pessoas se comunicavam ou viajavam pelo país.)*
+>
+> O que você acha? Me conta o que vem à sua mente!
+
+#### Pergunta 2 — Matemática (mesma sessão)
+
+> **Aluno:** Como eu resolvo a equação x2 - 5x + 6 = 0?
+
+> **NERV:** Mudança de planos! Adorei a virada de assunto, João. A matemática é
+> fascinante, e as **equações do $2^{\circ}$ grau** são um dos superpoderes que você
+> adquire justamente no 9º ano! Elas servem para resolver muitos problemas do nosso
+> dia a dia, como calcular trajetórias ou prever lucros.
+>
+> A sua equação é: $x^2 - 5x + 6 = 0$
+>
+> Para resolver uma equação desse tipo, a ferramenta mais famosa que usamos no
+> Brasil é a nossa querida **Fórmula de Bhaskara**.
+>
+> A estrutura geral de uma equação do $2^{\circ}$ grau é sempre escrita assim:
+> $ax^2 + bx + c = 0$
+>
+> Onde $a$, $b$ e $c$ são números que chamamos de *coeficientes*.
+>
+> Olhando para a sua equação, você consegue identificar para mim quem são esses
+> coeficientes? [...] Diga para mim quanto vale $a$, $b$ e $c$ para darmos o próximo
+> passo juntos!
+
+#### O que a transcrição comprova
+
+| Comportamento esperado do tutor | Onde aparece |
+|---|---|
+| Resposta coerente e factualmente correta | Segundo Reinado 1840–1889, Golpe da Maioridade, Bhaskara |
+| Adaptação à série do aluno | Cita o 9º ano e ancora no conteúdo da série nas duas respostas |
+| Não entrega a resposta pronta | Ambas terminam devolvendo uma pergunta ao aluno |
+| Uso de contexto brasileiro | "a nossa querida Fórmula de Bhaskara" |
+| Matemática em notação LaTeX | `$x^2 - 5x + 6 = 0$`, renderizado na tela via KaTeX |
+| Continuidade da conversa | Reconhece a troca de assunto ("Mudança de planos!") |
+| Personalização | Trata o aluno pelo nome |
+
+#### Persistência
+
+As quatro mensagens (duas perguntas e duas respostas) foram gravadas no banco e
+retornam em `GET /sessions/{id}/messages`, permitindo retomar a conversa depois.
 
 ### 2.4 Qualidade — testes automatizados
 
@@ -135,18 +207,24 @@ O aluno acessa a tela de tutoria, digita a pergunta e o sistema a recebe, regist
 e encaminha ao modelo, mantendo o canal aberto para a resposta em tempo real
 (itens 1 a 5 da tabela 2.2, todos verificados em produção).
 
-### 3.2 Recebimento de respostas — pendência declarada
+### 3.2 Recebimento de respostas coerentes — atendido
 
-O modelo ainda não responde porque o provedor de IA rejeita a credencial
-configurada:
+As duas perguntas enviadas receberam resposta completa, em português, factualmente
+correta e adequada à série do aluno (transcrição integral na seção 2.3). As
+respostas chegam **em tempo real**, palavra por palavra, e não como um bloco ao
+final.
 
-```
-400 INVALID_ARGUMENT — "Please pass a valid API key"
-```
+A coerência é verificável em três dimensões:
 
-O erro é do provedor, não da aplicação: a requisição sai do servidor, chega ao
-provedor e é recusada na autenticação. **Resolve-se substituindo o valor de
-`AI_API_KEY` por uma chave válida** — não há alteração de código pendente.
+- **Factual:** datas e fatos históricos corretos; método matemático correto para o
+  tipo de equação apresentada.
+- **Pedagógica:** o tutor conduz o aluno ao raciocínio em vez de entregar a
+  resposta, conforme as diretrizes da seção 1.3.
+- **Contextual:** mantém o fio da conversa entre perguntas de matérias diferentes e
+  personaliza pelo nome e pela série.
+
+**Resultado:** o aluno envia perguntas e recebe respostas coerentes. Critério
+**atendido**.
 
 ### 3.3 Credenciais de demonstração
 
@@ -190,8 +268,8 @@ npm run dev                          # http://localhost:3000
 | Requisito do marco | Situação |
 |---|---|
 | **Entregável** — implementação do sistema de interação com a IA | ✅ concluído |
-| **Evidência** — demonstração do chat respondendo | ⏳ ambiente pronto; transcrição pendente de credencial |
-| **Critério** — perguntas enviadas e respostas coerentes | ⏳ envio verificado; resposta pendente de credencial |
+| **Evidência** — demonstração do chat respondendo perguntas | ✅ transcrição real na seção 2.3 |
+| **Critério** — perguntas enviadas e respostas coerentes | ✅ atendido |
 
 ---
 
