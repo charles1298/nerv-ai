@@ -2,8 +2,7 @@
 
 > **Marco:** Mês 3 — Implementação do sistema de interação com a IA
 > **Status:** Concluído
-> **Projeto:** NERV AI — Sistema de Inteligência Educacional Adaptativa (alinhado à BNCC)
-> **Data:** 13/08/2026
+> **Projeto:** NERV AI — Sistema de Inteligência Educacional Adaptativa
 
 ---
 
@@ -65,7 +64,7 @@ Para ver os relatórios pedagógicos e a exportação em PDF:
 
 O sistema de interação foi implementado como um **agente de tutoria** que conversa
 com o aluno em tempo real. Não é um chat genérico: cada resposta é construída a
-partir do perfil do aluno e do currículo.
+partir do perfil do aluno e do andamento da conversa.
 
 ### 1.1 Fluxo de uma pergunta
 
@@ -74,8 +73,7 @@ Aluno digita  →  Frontend (Next.js)
               →  POST /sessions/{id}/chat
               →  tutor_agent monta o contexto:
                    · perfil e série do aluno
-                   · memória das sessões anteriores
-                   · trechos do currículo (BNCC) por busca semântica
+                   · histórico da conversa
               →  provedor de IA (streaming)
               →  resposta chega palavra por palavra na tela
               →  pergunta e resposta gravadas no banco
@@ -88,8 +86,7 @@ Aluno digita  →  Frontend (Next.js)
 | Agente tutor | `agents/tutor_agent.py` | Monta o prompt pedagógico e conduz o diálogo |
 | Wrapper do provedor | `services/ai_service.py` | Único ponto de acesso ao modelo; provedor trocável por variável de ambiente |
 | Endpoint de conversa | `routers/sessions.py` | Recebe a pergunta e devolve a resposta em streaming (SSE) |
-| Memória de longo prazo | `memory/mem0_client.py` | Recupera o que o aluno já estudou e onde teve dificuldade |
-| Ancoragem curricular | `memory/bncc_rag.py` | Busca semântica no corpus BNCC para embasar a explicação |
+| Memória da conversa | `routers/sessions.py` | Mantém o fio do diálogo entre as perguntas |
 | Interface de tutoria | `components/chat/TutorChat.tsx` | Tela do chat, com renderização de matemática (KaTeX) |
 | Extração de insights | `agents/tutor_agent.py` | Ao encerrar a sessão, registra avanços e dificuldades observados |
 
@@ -161,7 +158,7 @@ ambiente publicado:
 
 ### 2.3 Transcrição da conversa
 
-Conversa real capturada no ambiente publicado em **13/08/2026**, na sessão de
+Conversa real capturada no ambiente publicado, na sessão de
 tutoria do aluno de demonstração (9º ano do Ensino Fundamental). Transcrição
 literal, sem edição.
 
@@ -246,7 +243,7 @@ reproduzir a demonstração** entrando com as credenciais da seção 3.3:
 2. Entrar como `aluno@demo.nerv.ai` / `aluno-demo-123`
 3. Menu **Tutoria** → digitar a pergunta
 
-Verificado pela interface em 13/08/2026 com a pergunta *"como eu começo uma
+Verificado pela interface com a pergunta *"como eu começo uma
 redação?"*. Trecho da resposta recebida na tela:
 
 > Olá, João! Que excelente iniciativa a sua. Estar no 9º ano e já querer dominar a
