@@ -6,7 +6,7 @@ vêm sempre do banco (fonte da verdade) — o modelo só interpreta e recomenda.
 
 import structlog
 
-from services.anthropic_service import complete_json
+from services.ai_service import complete_json
 
 logger = structlog.get_logger()
 

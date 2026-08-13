@@ -10,8 +10,8 @@ Pendentes: deploy (Railway/Vercel), billing Stripe e API de integração escolar
 ## Stack
 
 - **Backend:** Python 3.12 · FastAPI · SQLAlchemy 2 (async) · PostgreSQL (pgvector) · Redis
-- **IA:** Claude Fable 5 por padrão — **provedor trocável via env**: qualquer API compatível com
-  a Messages API da Anthropic funciona definindo `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` e `AI_MODEL`.
+- **IA:** **provedor trocável via env** — qualquer API compatível com Chat Completions da OpenAI
+  (Gemini, OpenAI, Groq, AI Gateway da Vercel) via `AI_BASE_URL`, `AI_API_KEY` e `AI_MODEL`.
   Embeddings do RAG via endpoint compatível com OpenAI (`EMBEDDINGS_*`).
 - **Frontend:** Next.js 14 (App Router) · Tailwind · Zustand · KaTeX · PWA
 
@@ -20,7 +20,7 @@ Pendentes: deploy (Railway/Vercel), billing Stripe e API de integração escolar
 ### Opção A — Docker Compose (tudo)
 
 ```bash
-cp .env.example .env       # preencha ANTHROPIC_API_KEY e JWT_SECRET_KEY
+cp .env.example .env       # preencha AI_API_KEY e JWT_SECRET_KEY
 cd infra
 docker compose up --build
 ```
@@ -90,12 +90,12 @@ scripts/    seed_dev.py, test_agents.py
 
 ## Trocando o provedor de IA
 
-Toda chamada de modelo passa por `backend/services/anthropic_service.py`. No `.env`:
+Toda chamada de modelo passa por `backend/services/ai_service.py`. No `.env`:
 
 ```bash
-ANTHROPIC_API_KEY=sua-chave
-ANTHROPIC_BASE_URL=https://api.do-seu-provedor.com   # se compatível com a Messages API
-AI_MODEL=nome-do-modelo
+AI_API_KEY=sua-chave
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/   # vazio = OpenAI
+AI_MODEL=gemini-3.5-flash
 ```
 
 Nenhum agente precisa ser alterado.

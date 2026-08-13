@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from memory.bncc_rag import build_grounding_context
 from memory.mem0_client import get_student_context
 from models import SessionMessage, TutoringSession, User
-from services.anthropic_service import complete_json, stream_tutor_response
+from services.ai_service import complete_json, stream_tutor_response
 
 logger = structlog.get_logger()
 

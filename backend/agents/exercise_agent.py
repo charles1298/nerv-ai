@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Exercise, ExerciseAttempt, Topic, User
 from schemas.exercises import ExerciseContent, TipoExercicio
-from services.anthropic_service import complete_json
+from services.ai_service import complete_json
 
 logger = structlog.get_logger()
 

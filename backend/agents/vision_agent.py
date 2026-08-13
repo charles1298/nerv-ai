@@ -2,7 +2,7 @@
 
 import structlog
 
-from services.anthropic_service import analyze_image
+from services.ai_service import analyze_image
 
 logger = structlog.get_logger()
 

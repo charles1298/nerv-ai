@@ -1,6 +1,6 @@
 """Teste manual do ciclo dos agentes contra a Claude API real (seção 13).
 
-Requer ANTHROPIC_API_KEY válida e banco de pé. Uso (a partir de backend/):
+Requer AI_API_KEY válida e banco de pé. Uso (a partir de backend/):
     python ../scripts/test_agents.py --student-email aluno@demo.nerv.ai --subject Matemática --topic "Funções quadráticas"
 """
 

@@ -1,7 +1,7 @@
 # NERV AI — Sistema de Inteligência Educacional Adaptativa
 ### `CLAUDE.md` — Especificação Master para Claude Fable 5
 
-> **Modelo-alvo:** Claude Fable 5 (claude-fable-5)
+> **Modelo:** configuravel por env (`AI_MODEL`) — protocolo Chat Completions da OpenAI
 > **Stack:** Python 3.12 · FastAPI · React 19 · TypeScript · PostgreSQL · Redis · Mem0 · Claude API
 > **Contexto:** Plataforma SaaS multi-tenant de tutoria adaptativa para escolas públicas e privadas do Brasil, alinhada à BNCC.
 
@@ -51,7 +51,7 @@ nerv-ai/
 │   │   ├── upload.py            # Upload multimodal (foto/PDF)
 │   │   └── reports.py
 │   └── services/
-│       ├── anthropic_service.py # Wrapper do Claude Fable 5
+│       ├── ai_service.py       # Wrapper do provedor de IA (Chat Completions)
 │       ├── storage_service.py   # S3-compatible (Cloudflare R2)
 │       ├── pdf_service.py       # Relatórios em PDF (ReportLab)
 │       └── notification_service.py
@@ -117,7 +117,7 @@ nerv-ai/
 | Memória | Mem0 (cloud) | Perfil persistente por aluno |
 | RAG | pgvector + LlamaIndex | Corpus BNCC, ENEM |
 | Visão | Claude Fable 5 (vision) | Análise de fotos de provas |
-| Embeddings | claude-fable-5 embeddings | Busca semântica |
+| Embeddings | endpoint compatível OpenAI (`EMBEDDINGS_*`) | Busca semântica |
 
 ### Frontend
 | Camada | Tecnologia |
@@ -153,45 +153,37 @@ nerv-ai/
 - **Python type hints completos.** Todas as funções com assinatura tipada.
 - **Tratamento de erro em toda chamada à API.** Falhas da Claude API, Mem0 e banco de dados devem ser tratadas explicitamente com logs estruturados.
 
-### 3.2 Padrão de Chamada do Claude Fable 5
+### 3.2 Padrão de Chamada do Modelo
 
-```python
-# backend/services/anthropic_service.py
-# Sempre usar este padrão. NUNCA instanciar Anthropic() diretamente em outros arquivos.
+Todo acesso ao modelo passa por **`backend/services/ai_service.py`**. NUNCA
+instancie um client de IA diretamente em outro arquivo.
 
-import anthropic
-from typing import AsyncGenerator
-import structlog
+O wrapper fala o protocolo **Chat Completions da OpenAI**, que é o denominador
+comum entre provedores — trocar de provedor é trocar três variáveis, sem tocar
+em nenhum agente:
 
-logger = structlog.get_logger()
+| Provedor | `AI_BASE_URL` | `AI_MODEL` |
+|---|---|---|
+| Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.5-flash` |
+| OpenAI | (vazio) | `gpt-...` |
+| AI Gateway (Vercel) | `https://ai-gateway.vercel.sh/v1` | `anthropic/claude-opus-5` |
 
-client = anthropic.Anthropic()
+Três decisões do módulo que não são óbvias:
 
-FABLE_5_MODEL = "claude-fable-5"
+- **O client é preguiçoso** (`_client()` com `lru_cache`). O SDK da OpenAI estoura
+  na construção quando não há chave; criá-lo no import derrubaria a aplicação
+  inteira num deploy sem `AI_API_KEY`. Adiando, o `/health` continua de pé e só a
+  tutoria falha, com `AINotConfigured` no log.
+- **`extract_json()` é tolerante de propósito.** Modelos menores devolvem o JSON
+  cercado por ```json ou embrulhado em prosa. A extração tenta JSON puro, depois
+  o conteúdo da cerca, depois o trecho da primeira `{` à última `}`.
+- **`response_format` tem fallback.** Provedores compatíveis implementam o campo
+  de formas diferentes; em `BadRequestError` a chamada é repetida sem ele, já que
+  o prompt também pede JSON.
 
-async def stream_tutor_response(
-    system_prompt: str,
-    messages: list[dict],
-    student_id: str,
-    max_tokens: int = 4096,
-) -> AsyncGenerator[str, None]:
-    """
-    Stream de resposta do Fable 5 para a sessão de tutoria.
-    Usa extended thinking para problemas complexos (matemática, redação).
-    """
-    try:
-        with client.messages.stream(
-            model=FABLE_5_MODEL,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=messages,
-        ) as stream:
-            for text in stream.text_stream:
-                yield text
-    except anthropic.APIError as e:
-        logger.error("anthropic_api_error", student_id=student_id, error=str(e))
-        raise
-```
+> **Histórico:** o projeto nasceu escrito para a Messages API da Anthropic
+> (`anthropic_service.py`). Migrou para Chat Completions em 13/08/2026 para poder
+> usar qualquer provedor — inclusive o nível gratuito do Gemini.
 
 ### 3.3 Padrão de Memória (Mem0)
 
@@ -236,7 +228,7 @@ async def save_session_insights(
 - **Backend:** snake_case em Python, PEP8 estrito.
 - **Frontend:** camelCase em TypeScript, PascalCase em componentes React.
 - **Banco de dados:** snake_case em todas as tabelas e colunas.
-- **Variáveis de ambiente:** SCREAMING_SNAKE_CASE, prefixadas por domínio: `ANTHROPIC_API_KEY`, `MEM0_API_KEY`, `DATABASE_URL`, `REDIS_URL`, `R2_BUCKET_NAME`.
+- **Variáveis de ambiente:** SCREAMING_SNAKE_CASE, prefixadas por domínio: `AI_API_KEY`, `MEM0_API_KEY`, `DATABASE_URL`, `REDIS_URL`, `R2_BUCKET_NAME`.
 - **IDs:** UUIDs v4 em todas as entidades.
 
 ---
@@ -508,8 +500,8 @@ async def analyze_uploaded_image(
     Analisa imagem enviada pelo aluno.
     student_prompt: O que o aluno quer saber sobre a imagem.
     """
-    response = client.messages.create(
-        model=FABLE_5_MODEL,
+    response = await _client().chat.completions.create(
+        model=AI_MODEL,
         max_tokens=2048,
         messages=[
             {
@@ -800,8 +792,10 @@ sozinha a instância `app` de `main.py`, então não há entrypoint extra — o
 ## 11. VARIÁVEIS DE AMBIENTE (`.env`)
 
 ```bash
-# Claude Fable 5
-ANTHROPIC_API_KEY=sk-ant-...
+# Provedor de IA (compatível com Chat Completions da OpenAI)
+AI_API_KEY=
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+AI_MODEL=gemini-3.5-flash
 
 # Memória
 MEM0_API_KEY=m0-...
@@ -854,14 +848,14 @@ BACKEND_URL=http://localhost:8000
 1. Leia este CLAUDE.md na íntegra antes de iniciar qualquer módulo novo.
 2. Para cada módulo, implemente **backend completo** antes de tocar no frontend.
 3. Antes de criar qualquer endpoint, garanta que o schema do banco de dados suporte.
-4. Use **sempre** o `anthropic_service.py` para chamadas à API — nunca instancie `anthropic.Anthropic()` diretamente em outros módulos.
+4. Use **sempre** o `ai_service.py` para chamadas ao modelo — nunca instancie um client de IA diretamente em outros módulos.
 5. Ao adicionar um novo agente, registre-o neste CLAUDE.md na seção 5.
 
 ### Red lines (nunca faça):
 - Nunca armazene dados de alunos fora do PostgreSQL isolado por `school_id`.
 - Nunca logue conteúdo de mensagens de sessões (apenas metadados e tokens_used).
 - Nunca exponha `school_id` ou dados de outros tenants em nenhum endpoint.
-- Nunca use modelos diferentes de `claude-fable-5` sem atualizar a const `FABLE_5_MODEL`.
+- Nunca hardcode nome de modelo: ele vem de `AI_MODEL` no ambiente.
 
 ### Prioridade de qualidade:
 1. **Funciona corretamente** (testes passam, fluxo funciona end-to-end)

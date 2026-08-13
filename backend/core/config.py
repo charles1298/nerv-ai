@@ -17,10 +17,11 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
 
-    # Provedor de IA (qualquer API compatível com a Messages API da Anthropic)
-    anthropic_api_key: str = ""
-    anthropic_base_url: str = ""  # vazio = api.anthropic.com
-    ai_model: str = "claude-fable-5"
+    # Provedor de IA — qualquer API compatível com Chat Completions da OpenAI
+    # (OpenAI, Gemini via /v1beta/openai/, Groq, OpenRouter, AI Gateway da Vercel).
+    ai_api_key: str = ""
+    ai_base_url: str = ""  # vazio = api.openai.com
+    ai_model: str = "gemini-3.5-flash"
 
     # Embeddings para RAG (endpoint compatível com OpenAI /v1/embeddings)
     embeddings_api_url: str = ""

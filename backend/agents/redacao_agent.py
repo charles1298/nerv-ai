@@ -4,7 +4,7 @@ import structlog
 
 from models import User
 from schemas.redacao import RedacaoAvaliacao
-from services.anthropic_service import complete_json
+from services.ai_service import complete_json
 
 logger = structlog.get_logger()
 
