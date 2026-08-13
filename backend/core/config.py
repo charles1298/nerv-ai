@@ -57,18 +57,35 @@ class Settings(BaseSettings):
 
     @field_validator("database_url")
     @classmethod
-    def _force_async_driver(cls, url: str) -> str:
-        """Garante o driver async na URL do Postgres.
+    def _normalize_pg_url(cls, url: str) -> str:
+        """Deixa a DATABASE_URL da hospedagem utilizável pelo asyncpg.
 
-        Hospedagens (Railway, Render, Heroku) injetam DATABASE_URL como
-        `postgresql://` ou `postgres://`, que o SQLAlchemy async rejeita com um
-        erro de driver pouco óbvio. Normalizar aqui evita ter que lembrar disso
-        em cada painel — e vale também para o `alembic upgrade head`.
+        Duas incompatibilidades que aparecem em Railway, Render, Heroku e Neon:
+
+        1. O esquema vem como `postgresql://` (ou o antigo `postgres://`), que o
+           SQLAlchemy async rejeita com um erro de driver pouco óbvio.
+        2. A query string vem com `sslmode`/`channel_binding`, parâmetros do
+           libpq que o asyncpg não conhece — ele falha com "unexpected keyword
+           argument". O asyncpg negocia TLS por conta própria.
+
+        Normalizar aqui vale também para o `alembic upgrade head` do build.
         """
         for prefixo in ("postgresql://", "postgres://"):
             if url.startswith(prefixo):
-                return "postgresql+asyncpg://" + url[len(prefixo) :]
-        return url
+                url = "postgresql+asyncpg://" + url[len(prefixo) :]
+                break
+
+        if not url.startswith("postgresql+asyncpg://") or "?" not in url:
+            return url
+
+        base, _, query = url.partition("?")
+        incompativeis = {"sslmode", "channel_binding"}
+        mantidos = [
+            par
+            for par in query.split("&")
+            if par and par.split("=")[0].lower() not in incompativeis
+        ]
+        return f"{base}?{'&'.join(mantidos)}" if mantidos else base
 
 
 @lru_cache

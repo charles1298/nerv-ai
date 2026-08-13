@@ -39,6 +39,30 @@ async def test_password_with_special_chars_survives():
     assert s.database_url == "postgresql+asyncpg://u:a/b@c@host:5432/nerv"
 
 
+async def test_sslmode_stripped_for_asyncpg():
+    """Neon entrega `?sslmode=require`, que o asyncpg nao aceita."""
+    s = Settings(database_url="postgresql://u:p@ep-x.neon.tech/nerv?sslmode=require")
+    assert s.database_url == "postgresql+asyncpg://u:p@ep-x.neon.tech/nerv"
+
+
+async def test_channel_binding_stripped_but_other_params_kept():
+    s = Settings(
+        database_url=(
+            "postgresql://u:p@ep-x.neon.tech/nerv"
+            "?sslmode=require&channel_binding=require&application_name=nerv"
+        )
+    )
+    assert s.database_url == (
+        "postgresql+asyncpg://u:p@ep-x.neon.tech/nerv?application_name=nerv"
+    )
+
+
+async def test_sqlite_query_string_untouched():
+    """A limpeza e' so do Postgres — nao pode mexer em outros dialetos."""
+    s = Settings(database_url="sqlite+aiosqlite:///./x.db?cache=shared")
+    assert s.database_url == "sqlite+aiosqlite:///./x.db?cache=shared"
+
+
 # --- Pool de conexões por ambiente ---
 
 
