@@ -11,6 +11,9 @@ node_modules/
 .next/
 out/
 
+# Vercel (link local do projeto)
+.vercel/
+
 # Env e segredos
 .env
 .env.local

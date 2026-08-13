@@ -771,6 +771,14 @@ sozinha a instância `app` de `main.py`, então não há entrypoint extra — o
 
 - **Root Directory do projeto = `backend`** (é onde estão `main.py`,
   `requirements.txt` e `alembic.ini`).
+- **`"framework": "fastapi"` no `vercel.json` é obrigatório.** Projeto criado pela
+  CLI nasce com preset "Other", e aí a Vercel cai no caminho legado de funções em
+  `api/` (erro "doesn't match any Serverless Functions") e escolhe Python 3.14,
+  onde o `pydantic-core` fixado não tem wheel e falha compilando em Rust.
+  `.python-version` fixa 3.12 junto.
+- **Variável de build ≠ variável de runtime.** `APP_ENV` definido só no build faz
+  o `/health` responder `env: development` em produção — e nesse modo o lifespan
+  roda `create_all`. Defina as variáveis para runtime também.
 - **Migrations rodam no build** (`buildCommand = "alembic upgrade head"`), porque
   em serverless não existe `startCommand` e o lifespan não cria schema fora de dev.
 - **Sem pool na aplicação:** `core/database.py` usa `NullPool` quando detecta
