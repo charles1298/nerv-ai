@@ -1,8 +1,10 @@
-"""Normalização da DATABASE_URL vinda da hospedagem."""
+"""Configuração sensível ao ambiente de hospedagem."""
 
 import pytest
+from sqlalchemy.pool import NullPool
 
 from core.config import Settings
+from core.database import _pool_kwargs
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,3 +37,18 @@ async def test_password_with_special_chars_survives():
     nao pode comer o resto da URL."""
     s = Settings(database_url="postgresql://u:a/b@c@host:5432/nerv")
     assert s.database_url == "postgresql+asyncpg://u:a/b@c@host:5432/nerv"
+
+
+# --- Pool de conexões por ambiente ---
+
+
+async def test_no_app_side_pool_on_serverless(monkeypatch: pytest.MonkeyPatch):
+    """Na Vercel, pool na aplicação esgotaria as conexões do Postgres."""
+    monkeypatch.setenv("VERCEL", "1")
+    assert _pool_kwargs() == {"poolclass": NullPool}
+
+
+async def test_pool_kept_outside_serverless(monkeypatch: pytest.MonkeyPatch):
+    """Local e em container o pool do SQLAlchemy e' desejavel."""
+    monkeypatch.delenv("VERCEL", raising=False)
+    assert _pool_kwargs() == {}

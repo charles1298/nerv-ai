@@ -134,7 +134,7 @@ nerv-ai/
 ### Infra
 | Componente | Provedor |
 |---|---|
-| Backend | Railway (auto-deploy) |
+| Backend | Vercel (Python/ASGI serverless); `infra/` mantém a opção Railway |
 | Frontend | Vercel |
 | DB | Railway PostgreSQL |
 | Cache | Upstash Redis |
@@ -760,6 +760,32 @@ RATE_LIMITS = {
 - [x] Mobile responsivo (PWA — manifest + tema; service worker offline pendente)
 - [ ] API de integração para sistemas escolares (SIGE, etc.) — aguarda definição dos parceiros
 - [x] LGPD compliance (exportação JSON + deleção/anonimização, próprio usuário e via gestor)
+
+---
+
+## 10.1 DEPLOY DO BACKEND NA VERCEL (serverless)
+
+O backend roda como **uma única Vercel Function** (Python/ASGI). A Vercel detecta
+sozinha a instância `app` de `main.py`, então não há entrypoint extra — o
+`backend/vercel.json` só define o build e o que fica fora do bundle.
+
+- **Root Directory do projeto = `backend`** (é onde estão `main.py`,
+  `requirements.txt` e `alembic.ini`).
+- **Migrations rodam no build** (`buildCommand = "alembic upgrade head"`), porque
+  em serverless não existe `startCommand` e o lifespan não cria schema fora de dev.
+- **Sem pool na aplicação:** `core/database.py` usa `NullPool` quando detecta
+  `VERCEL=1`. Cada instância teria seu próprio pool e esgotaria as conexões do
+  Postgres; o pooling fica com o provedor (pgBouncer do Neon).
+- **`DATABASE_URL` é normalizada** para `postgresql+asyncpg://` em `core/config.py`,
+  já que as hospedagens injetam o esquema `postgresql://`.
+- Duração máxima da função no plano Hobby: **300s**, folgada para o streaming SSE
+  do tutor.
+
+**Limitações herdadas do serverless:**
+- Filesystem somente-leitura: upload de foto sem credenciais R2 não persiste
+  (o storage cai no fallback em disco). Para a visão funcionar em produção,
+  configure `R2_*`.
+- Corpo de request limitado a 4,5 MB — relevante para fotos grandes.
 
 ---
 

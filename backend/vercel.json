@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "alembic upgrade head",
+  "functions": {
+    "main.py": {
+      "excludeFiles": "{tests/**,**/__pycache__/**,*.db,uploads/**}"
+    }
+  }
+}
