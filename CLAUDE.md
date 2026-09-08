@@ -36,7 +36,8 @@ nerv-ai/
 │   │   ├── exercise_agent.py    # Geração adaptativa de exercícios
 │   │   ├── redacao_agent.py     # Avaliação e feedback de redações
 │   │   ├── vision_agent.py      # Análise de fotos de provas/cadernos
-│   │   └── report_agent.py      # Geração de relatórios pedagógicos
+│   │   ├── report_agent.py      # Geração de relatórios pedagógicos
+│   │   └── cronograma_agent.py  # Cronogramas de estudo personalizados
 │   ├── memory/
 │   │   ├── mem0_client.py       # Integração Mem0 por aluno
 │   │   ├── bncc_rag.py          # RAG sobre corpus BNCC + materiais
@@ -378,6 +379,26 @@ CREATE TABLE student_performance (
     UNIQUE (student_id, subject_id, period_date)
 );
 
+-- Cronogramas de estudo personalizados (seção 5.6)
+CREATE TABLE study_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id),
+    -- Restrições informadas pelo aluno: é o que o plano tem que respeitar
+    objetivo TEXT NOT NULL,
+    semanas_total INTEGER NOT NULL,
+    dias_por_semana INTEGER NOT NULL,
+    minutos_por_dia INTEGER NOT NULL,
+    materias_foco JSONB NOT NULL DEFAULT '[]',
+    -- Plano gerado
+    resumo TEXT NOT NULL,
+    estrategia TEXT NOT NULL,
+    semanas JSONB NOT NULL DEFAULT '[]',   -- semana -> dia -> blocos
+    dicas JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX ix_study_plans_student_created ON study_plans (student_id, created_at);
+
 -- pgvector para RAG (corpus BNCC + questões ENEM)
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -587,6 +608,71 @@ Regras do módulo:
 
 ---
 
+### 5.6 Agente de Cronograma (`cronograma_agent.py`)
+
+**Função:** Montar cronogramas de estudo personalizados para o aluno.
+
+**O que torna o plano personalizado** não é o formulário — é o cruzamento dele
+com o histórico. O formulário diz *quanto tempo o aluno tem*; `student_performance`
+diz *onde ele está travando*. Um plano que ignora o primeiro não é seguido; um
+que ignora o segundo é só um calendário bonito.
+
+**Duas proteções que o recurso exige para não nascer inútil:**
+
+- **Orçamento de tempo.** Um plano que pede 3 horas de quem tem 30 minutos não é
+  cumprido, e o aluno conclui que não dá conta — quando o errado era o plano. O
+  agente soma os minutos de cada dia e, se estourar (com 20% de tolerância),
+  refaz a chamada dizendo **quais** dias estouraram; instrução genérica o modelo
+  já ignorou uma vez. Esgotadas as tentativas, entrega o plano apertado: o aluno
+  corta um bloco, mas não usa uma tela de erro.
+- **Lista fechada de atividades** (`revisao`, `exercicios`, `leitura`, `redacao`,
+  `simulado`, `videoaula`, `descanso`). Com texto livre o modelo inventa rótulo
+  novo a cada geração e a interface não consegue dar ícone nem cor consistente.
+
+O validador também normaliza `"Segunda-feira"` para `"Segunda"`: o modelo alterna
+entre as duas formas dentro da mesma resposta.
+
+**Saída (JSON):**
+```json
+{
+  "resumo": "O que este plano vai fazer pelo aluno, em 2-3 frases.",
+  "estrategia": "Por que o plano foi montado assim.",
+  "semanas": [
+    {
+      "numero": 1,
+      "foco": "O que esta semana busca destravar.",
+      "dias": [
+        {
+          "dia": "Segunda",
+          "blocos": [
+            {
+              "materia": "Matemática",
+              "topico": "Porcentagem",
+              "minutos": 30,
+              "atividade": "exercicios",
+              "descricao": "Resolver 5 questões de nível 2."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "dicas": ["Conselho de rotina, curto e aplicável."]
+}
+```
+
+| Endpoint | Papel | Ação |
+|---|---|---|
+| `POST /cronogramas` | aluno | Gera e persiste (rate limit 5/hora — chamada longa) |
+| `GET /cronogramas` | aluno | Histórico, sem o corpo do plano |
+| `GET /cronogramas/{id}` | aluno | Plano completo |
+| `DELETE /cronogramas/{id}` | aluno | Remove |
+
+O isolamento vai **na query** (`student_id` no `WHERE`), não numa checagem
+posterior: assim o cronograma de um aluno nunca é carregado por conta de outro.
+
+---
+
 ## 6. SISTEMA DE MEMÓRIA E PERSONALIZAÇÃO
 
 ### 6.1 Perfil Adaptativo do Aluno
@@ -674,6 +760,7 @@ entrada. `prefers-reduced-motion` desliga tudo isso globalmente no `globals.css`
 - **Chat de Tutoria:** Interface conversacional com streaming de respostas, renderização KaTeX para matemática, botão de upload de foto, indicador de "NERV está pensando...".
 - **Exercícios:** Feed de exercícios do nível atual, timer, feedback imediato.
 - **Redação:** Editor de texto com contagem de palavras, envio para correção, histórico de redações com evolução de notas.
+- **Cronograma:** Formulário de objetivo/semanas/dias/minutos, plano gerado semana a semana com blocos por dia (ícone e cor por tipo de atividade), e histórico de planos.
 - **Perfil & Conquistas:** Heatmap de estudo, badges, evolução histórica.
 
 ### 7.2 Interface do Professor (`/professor`)
@@ -750,6 +837,7 @@ RATE_LIMITS = {
     "exercise_generation": "20/minute",  # por aluno
     "image_uploads": "10/minute",        # por aluno
     "redacao_submission": "5/hour",      # por aluno
+    "cronograma_generation": "5/hour",   # por aluno; plano de semanas inteiras
 }
 ```
 
@@ -795,6 +883,7 @@ RATE_LIMITS = {
 - [x] Mobile responsivo (PWA — manifest + tema; service worker offline pendente)
 - [ ] API de integração para sistemas escolares (SIGE, etc.) — aguarda definição dos parceiros
 - [x] LGPD compliance (exportação JSON + deleção/anonimização, próprio usuário e via gestor)
+- [x] Cronogramas de estudo personalizados (`cronograma_agent.py`, tabela `study_plans`, tela `/cronograma`) — entregável do Mês 4
 
 ---
 

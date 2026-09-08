@@ -39,6 +39,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
     throw new ApiError(res.status, body.detail ?? `Erro ${res.status}`);
   }
+  // 204 nao tem corpo: chamar res.json() aqui estouraria com erro de parse.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -163,6 +165,66 @@ export interface EssayPublic {
   submitted_at: string;
 }
 
+export type AtividadeCronograma =
+  | "revisao"
+  | "exercicios"
+  | "leitura"
+  | "redacao"
+  | "simulado"
+  | "videoaula"
+  | "descanso";
+
+export interface BlocoEstudo {
+  materia: string;
+  topico: string;
+  minutos: number;
+  atividade: AtividadeCronograma;
+  descricao: string;
+}
+
+export interface DiaEstudo {
+  dia: string;
+  blocos: BlocoEstudo[];
+}
+
+export interface SemanaEstudo {
+  numero: number;
+  foco: string;
+  dias: DiaEstudo[];
+}
+
+export interface CronogramaPublic {
+  id: string;
+  objetivo: string;
+  semanas_total: number;
+  dias_por_semana: number;
+  minutos_por_dia: number;
+  materias_foco: string[];
+  resumo: string;
+  estrategia: string;
+  semanas: SemanaEstudo[];
+  dicas: string[];
+  created_at: string;
+}
+
+/** Item da listagem — sem o corpo do plano, que pesaria dezenas de semanas. */
+export interface CronogramaResumo {
+  id: string;
+  objetivo: string;
+  semanas_total: number;
+  dias_por_semana: number;
+  minutos_por_dia: number;
+  created_at: string;
+}
+
+export interface CronogramaCreateInput {
+  objetivo: string;
+  semanas: number;
+  dias_por_semana: number;
+  minutos_por_dia: number;
+  materias: string[];
+}
+
 export interface StudentCard {
   student_id: string;
   name: string;
@@ -256,6 +318,15 @@ export const api = {
   schoolOverviewPdf: () => downloadPdf("/reports/escola/pdf", "visao-escola.pdf"),
   bnccDiagnostic: () => request<BnccDiagnostic[]>("/reports/bncc"),
   exportMyData: () => request<Record<string, unknown>>("/lgpd/export"),
+  createCronograma: (input: CronogramaCreateInput) =>
+    request<CronogramaPublic>("/cronogramas", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  listCronogramas: () => request<CronogramaResumo[]>("/cronogramas"),
+  getCronograma: (id: string) => request<CronogramaPublic>(`/cronogramas/${id}`),
+  deleteCronograma: (id: string) =>
+    request<void>(`/cronogramas/${id}`, { method: "DELETE" }),
 };
 
 /** Upload de foto (multipart) com análise por visão. */

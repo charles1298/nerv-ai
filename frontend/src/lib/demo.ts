@@ -237,6 +237,118 @@ function delay(ms: number) {
 }
 
 /** Roteia uma chamada de API para dados de demonstração. */
+
+// --- Cronograma de estudos (demonstração) ---
+//
+// Monta o plano a partir do que o formulário pediu, em vez de devolver um fixo:
+// no modo demonstração o visitante precisa ver que o cronograma respeita o tempo
+// e os dias que ele escolheu — é justamente isso que o recurso promete.
+
+const DIAS_SEMANA_DEMO = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+const RECEITA_DEMO = [
+  {
+    materia: "Matemática",
+    topico: "Porcentagem e juros simples",
+    atividade: "exercicios",
+    descricao: "Resolver 5 questões de porcentagem começando pelas de nível 2.",
+  },
+  {
+    materia: "Língua Portuguesa",
+    topico: "Interpretação de texto",
+    atividade: "leitura",
+    descricao: "Ler uma reportagem curta e escrever o resumo em 3 linhas.",
+  },
+  {
+    materia: "Ciências",
+    topico: "Fotossíntese",
+    atividade: "revisao",
+    descricao: "Refazer o esquema da fotossíntese sem consultar o caderno.",
+  },
+  {
+    materia: "Matemática",
+    topico: "Equações de 1º grau",
+    atividade: "simulado",
+    descricao: "Simulado curto de 6 questões, cronometrado.",
+  },
+];
+
+function planoDemo(body: Record<string, unknown>) {
+  const semanasTotal = Math.min(Number(body.semanas ?? 2) || 2, 12);
+  const diasPorSemana = Math.min(Number(body.dias_por_semana ?? 3) || 3, 7);
+  const minutosPorDia = Math.max(Number(body.minutos_por_dia ?? 45) || 45, 15);
+  const objetivo = String(body.objetivo ?? "Melhorar meu desempenho na escola");
+
+  const semanas = Array.from({ length: semanasTotal }, (_, s) => ({
+    numero: s + 1,
+    foco:
+      s === semanasTotal - 1
+        ? "Revisar tudo e testar o que ficou de pé"
+        : "Destravar os tópicos em que você mais errou",
+    dias: Array.from({ length: diasPorSemana }, (_, d) => {
+      const receita = RECEITA_DEMO[(s + d) % RECEITA_DEMO.length];
+      // Dois blocos quando há tempo, um só quando o dia é curto — a soma nunca
+      // ultrapassa o que o aluno disse ter.
+      const dobrar = minutosPorDia >= 60;
+      const minutos = dobrar ? Math.floor(minutosPorDia / 2) : minutosPorDia;
+      const segundo = RECEITA_DEMO[(s + d + 1) % RECEITA_DEMO.length];
+      return {
+        dia: DIAS_SEMANA_DEMO[d % DIAS_SEMANA_DEMO.length],
+        blocos: dobrar
+          ? [
+              { ...receita, minutos },
+              { ...segundo, minutos: minutosPorDia - minutos },
+            ]
+          : [{ ...receita, minutos }],
+      };
+    }),
+  }));
+
+  return { objetivo, semanasTotal, diasPorSemana, minutosPorDia, semanas };
+}
+
+function cronogramaDemo(body: Record<string, unknown>) {
+  const p = planoDemo(body);
+  return {
+    id: "cron-demo",
+    objetivo: p.objetivo,
+    semanas_total: p.semanasTotal,
+    dias_por_semana: p.diasPorSemana,
+    minutos_por_dia: p.minutosPorDia,
+    materias_foco: (body.materias as string[]) ?? [],
+    resumo:
+      "Montei um plano de " +
+      p.semanasTotal +
+      " semana(s), " +
+      p.diasPorSemana +
+      " dia(s) por semana, cabendo nos seus " +
+      p.minutosPorDia +
+      " minutos diários.",
+    estrategia:
+      "Começamos pelo que você mais errou e deixamos revisão e simulado para o fim, " +
+      "que é quando o conteúdo já assentou. Nada de virar a noite: o plano cabe na sua rotina.",
+    semanas: p.semanas,
+    dicas: [
+      "Estude sempre no mesmo horário — a rotina cansa menos que a força de vontade.",
+      "Ao terminar um bloco, escreva uma frase do que aprendeu. Isso fixa mais que reler.",
+      "Se faltar um dia, siga o plano do dia seguinte. Não tente compensar tudo de uma vez.",
+    ],
+    created_at: new Date().toISOString(),
+  };
+}
+
+function resumoCronogramaDemo() {
+  const c = cronogramaDemo({});
+  return {
+    id: c.id,
+    objetivo: c.objetivo,
+    semanas_total: c.semanas_total,
+    dias_por_semana: c.dias_por_semana,
+    minutos_por_dia: c.minutos_por_dia,
+    created_at: c.created_at,
+  };
+}
+
 export async function demoRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const body = init.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : {};
@@ -285,6 +397,11 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   if (path.startsWith("/reports/aluno/")) return reportFor(path.split("/")[3]) as T;
   if (path === "/reports/escola") return SCHOOL_OVERVIEW as T;
   if (path === "/reports/bncc") return BNCC_DIAG as T;
+
+  if (path === "/cronogramas" && method === "POST") return cronogramaDemo(body) as T;
+  if (path === "/cronogramas") return [resumoCronogramaDemo()] as T;
+  if (path.startsWith("/cronogramas/") && method === "DELETE") return undefined as T;
+  if (path.startsWith("/cronogramas/")) return cronogramaDemo({}) as T;
 
   if (path === "/lgpd/export") return { user: loadDemoUser(), aviso: "Exportação de demonstração." } as T;
 

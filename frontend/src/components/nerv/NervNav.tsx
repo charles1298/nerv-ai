@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, MessageCircle, ListChecks, PenLine, LogOut } from "lucide-react";
+import { CalendarDays, Home, MessageCircle, ListChecks, PenLine, LogOut } from "lucide-react";
 import { NervLogo } from "./NervLogo";
 
 const items = [
@@ -13,6 +13,7 @@ const items = [
   { href: "/chat", label: "Tutoria", icon: MessageCircle },
   { href: "/exercicios", label: "Exercícios", icon: ListChecks },
   { href: "/redacao", label: "Redação", icon: PenLine },
+  { href: "/cronograma", label: "Cronograma", icon: CalendarDays },
 ] as const;
 
 export function NervNav({
