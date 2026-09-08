@@ -27,6 +27,29 @@ AI_MODEL = settings.ai_model
 # Modelo devolvendo JSON dentro de ```json ... ``` é comum fora da Anthropic.
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.S)
 
+# Casa um escape JSON válido (\" \\ \/ \b \f \n \r \t \uXXXX) OU uma barra solta.
+# A ordem importa: o primeiro ramo consome o par válido inteiro, então uma barra
+# já escapada corretamente nunca chega ao segundo ramo.
+_ESCAPE_OU_BARRA_SOLTA = re.compile(r'\\(["\\/bfnrt]|u[0-9a-fA-F]{4})|\\')
+
+
+def _repara_escapes(texto: str) -> str:
+    r"""Dobra as barras invertidas que não formam escape JSON válido.
+
+    O modelo escreve LaTeX dentro das strings — `$2\%$`, `\cdot`, `R\$\,500,00` —
+    e em JSON qualquer barra fora da lista de escapes válidos invalida o
+    documento inteiro, não apenas aquele campo. Numa plataforma que ensina
+    matemática isso não é exceção: é o conteúdo normal, e por isso a geração de
+    exercícios de juros e porcentagem falhava de forma reproduzível.
+
+    Reparar aqui é mais confiável do que pedir ao modelo que escape certo — esse
+    é justamente o tipo de instrução que modelos menores esquecem.
+    """
+    return _ESCAPE_OU_BARRA_SOLTA.sub(
+        lambda m: m.group(0) if m.group(1) else "\\\\", texto
+    )
+
+
 
 class AINotConfigured(RuntimeError):
     """AI_API_KEY ausente. Erro explícito em vez de falha obscura no request."""
@@ -71,12 +94,16 @@ def extract_json(raw: str) -> dict:
         tentativas.append(raw[inicio : fim + 1])
 
     for candidato in tentativas:
-        try:
-            parsed = json.loads(candidato.strip())
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if isinstance(parsed, dict):
-            return parsed
+        limpo = candidato.strip()
+        # A versão reparada só entra em cena se a original falhar: JSON que já
+        # está válido nunca passa pelo reparo.
+        for texto in (limpo, _repara_escapes(limpo)):
+            try:
+                parsed = json.loads(texto)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(parsed, dict):
+                return parsed
 
     raise ValueError("O modelo não retornou JSON válido")
 
