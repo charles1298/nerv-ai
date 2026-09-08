@@ -1,9 +1,13 @@
 "use client";
 
 // Renderiza texto com LaTeX inline ($...$) via KaTeX, conforme seção 5.1.
+// Fora da matemática, limpa marcação Markdown: a bolha não a interpreta e o
+// aluno acabaria lendo os asteriscos.
 
 import katex from "katex";
 import { useMemo } from "react";
+
+import { limparMarcacao } from "@/lib/text";
 
 interface MathRendererProps {
   content: string;
@@ -25,7 +29,7 @@ export function MathRenderer({ content }: MathRendererProps) {
           }
           return <span key={i} dangerouslySetInnerHTML={{ __html: html }} />;
         }
-        return <span key={i}>{part}</span>;
+        return <span key={i}>{limparMarcacao(part)}</span>;
       })}
     </span>
   );

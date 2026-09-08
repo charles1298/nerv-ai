@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents.estilo import ESTILO_RESPOSTA_ALUNO
 from memory.bncc_rag import build_grounding_context
 from memory.mem0_client import get_student_context
 from models import SessionMessage, TutoringSession, User
@@ -27,6 +28,8 @@ Use exemplos brasileiros sempre que possível.
 Para matemática, use notação LaTeX inline ($...$) para todas as expressões.
 Para ciências, cite experimentos simples que o aluno pode fazer em casa.
 Para português, pratique redação com temas reais do ENEM recente.
+
+{estilo}
 
 CONTEXTO DO ALUNO:
 {student_context}
@@ -63,6 +66,7 @@ def build_system_prompt(
     grounding: str = "",
 ) -> str:
     return TUTOR_SYSTEM_PROMPT.format(
+        estilo=ESTILO_RESPOSTA_ALUNO,
         student_context=student_context,
         grounding=grounding,
         student_name=student.name,

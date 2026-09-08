@@ -2,6 +2,7 @@
 
 import structlog
 
+from agents.estilo import ESTILO_RESPOSTA_ALUNO
 from services.ai_service import analyze_image
 
 logger = structlog.get_logger()
@@ -17,7 +18,9 @@ Analise esta imagem educacional. Identifique:
 4. Se houver erros do aluno visíveis, explique com cuidado
 5. Se for um exercício não resolvido, guie passo a passo (sem dar a resposta direta)
 
-Use notação LaTeX inline ($...$) para expressões matemáticas."""
+Use notação LaTeX inline ($...$) para expressões matemáticas.
+
+""" + ESTILO_RESPOSTA_ALUNO
 
 
 async def analyze_uploaded_image(
