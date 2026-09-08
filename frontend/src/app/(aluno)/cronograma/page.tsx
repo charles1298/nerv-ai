@@ -30,6 +30,7 @@ import {
   type CronogramaResumo,
   type SubjectPublic,
 } from "@/lib/api";
+import { MathRenderer } from "@/components/chat/MathRenderer";
 import { Reveal } from "@/components/nerv/Reveal";
 
 const OPCOES_SEMANAS = [1, 2, 4, 6, 8, 12];
@@ -265,7 +266,9 @@ export default function CronogramaPage() {
             <div className="surface-card glow-ring p-5 sm:p-7">
               <p className="text-xs uppercase tracking-wide text-primary">Seu plano</p>
               <h2 className="mt-2 font-display text-xl font-bold">{plano.objetivo}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{plano.resumo}</p>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                <MathRenderer content={plano.resumo} />
+              </p>
 
               <div className="mt-5 flex flex-wrap gap-2 text-xs">
                 <Etiqueta icone={CalendarDays}>
@@ -278,7 +281,7 @@ export default function CronogramaPage() {
               <div className="mt-5 rounded-2xl bg-surface-2/50 p-4">
                 <p className="text-sm font-semibold">Por que montei assim</p>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  {plano.estrategia}
+                  <MathRenderer content={plano.estrategia} />
                 </p>
               </div>
             </div>
@@ -296,7 +299,9 @@ export default function CronogramaPage() {
                       <span className="text-xs uppercase tracking-wide text-primary">
                         Semana {semana.numero}
                       </span>
-                      <span className="mt-1 block font-semibold">{semana.foco}</span>
+                      <span className="mt-1 block font-semibold">
+                        <MathRenderer content={semana.foco} />
+                      </span>
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {aberta ? "ocultar" : "ver dias"}
@@ -331,7 +336,7 @@ export default function CronogramaPage() {
                                         {rotulo} · {bloco.minutos} min
                                       </span>
                                       <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
-                                        {bloco.descricao}
+                                        <MathRenderer content={bloco.descricao} />
                                       </span>
                                     </span>
                                   </li>
@@ -355,7 +360,7 @@ export default function CronogramaPage() {
                 <ul className="mt-3 space-y-2">
                   {plano.dicas.map((dica, i) => (
                     <li key={i} className="text-sm leading-relaxed text-muted-foreground">
-                      {dica}
+                      <MathRenderer content={dica} />
                     </li>
                   ))}
                 </ul>
