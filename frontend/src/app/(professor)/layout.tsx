@@ -9,14 +9,17 @@ const STAFF_ROLES = ["teacher", "manager", "admin"];
 
 export default function ProfessorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { accessToken, user, logout } = useAuthStore();
+  const { accessToken, user, logout, hydrated } = useAuthStore();
 
+  // Só decide depois que o localStorage foi lido: antes disso todo mundo
+  // parece deslogado, e recarregar a página expulsaria da sessão.
   useEffect(() => {
+    if (!hydrated) return;
     if (!accessToken) router.replace("/login");
     else if (user && !STAFF_ROLES.includes(user.role)) router.replace("/chat");
-  }, [accessToken, user, router]);
+  }, [hydrated, accessToken, user, router]);
 
-  if (!accessToken) return null;
+  if (!hydrated || !accessToken) return null;
 
   return (
     <div className="flex h-screen flex-col">

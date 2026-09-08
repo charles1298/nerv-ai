@@ -8,13 +8,15 @@ import { useAuthStore } from "@/store/auth";
 
 export default function AlunoLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { accessToken, user, logout } = useAuthStore();
+  const { accessToken, user, logout, hydrated } = useAuthStore();
 
+  // Só decide depois que o localStorage foi lido: antes disso todo aluno
+  // parece deslogado, e recarregar a página o expulsaria da sessão.
   useEffect(() => {
-    if (!accessToken) router.replace("/login");
-  }, [accessToken, router]);
+    if (hydrated && !accessToken) router.replace("/login");
+  }, [hydrated, accessToken, router]);
 
-  if (!accessToken) return null;
+  if (!hydrated || !accessToken) return null;
 
   return (
     <div className="flex min-h-screen flex-col">
