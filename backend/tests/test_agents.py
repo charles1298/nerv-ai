@@ -71,7 +71,12 @@ async def test_grade_wrong_answer():
     is_correct, score, feedback = grade_multiple_choice(_exercise(), "A")
     assert is_correct is False
     assert score == 0.0
-    assert "B" in feedback
+    # O feedback de erro NÃO pode entregar a alternativa correta: a tela deixa o
+    # aluno tentar de novo, e revelar a resposta transformaria isso num clique.
+    assert "B" not in feedback
+    # Mas precisa ajudar: sai a armadilha comum e a dica da questão.
+    assert "potência" in feedback.lower()
+    assert "multiplique" in feedback.lower()
 
 
 async def test_chat_streams_and_persists(

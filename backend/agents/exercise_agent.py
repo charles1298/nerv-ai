@@ -108,17 +108,40 @@ async def generate_exercise(
     return exercise
 
 
-def grade_multiple_choice(exercise: Exercise, answer: str) -> tuple[bool, float, str]:
-    """Corrige múltipla escolha localmente (sem chamada ao modelo)."""
+def grade_multiple_choice(
+    exercise: Exercise, answer: str, tentativas_anteriores: int = 0
+) -> tuple[bool, float, str]:
+    """Corrige múltipla escolha localmente (sem chamada ao modelo).
+
+    O feedback de erro **nunca revela a alternativa correta**. A tela de
+    exercícios deixa o aluno tentar de novo até acertar, e dizer a resposta aqui
+    transformaria a tentativa seguinte num clique — é justamente ao refazer o
+    raciocínio que ele aprende. Quem revela a resposta é a resolução passo a
+    passo, liberada só depois do acerto.
+
+    `tentativas_anteriores` faz a dica girar: repetir a mesma frase a cada erro
+    soa robótico e não ajuda quem já tentou exatamente aquele caminho.
+    """
     content = ExerciseContent.model_validate(exercise.content)
     is_correct = answer.strip().upper() == (content.correct_answer or "").upper()
     score = 10.0 if is_correct else 0.0
+
     if is_correct:
-        feedback = "Resposta correta! Confira a resolução passo a passo para consolidar o raciocínio."
-    else:
-        mistakes = " ".join(content.common_mistakes[:2])
-        feedback = (
-            f"Resposta incorreta — a alternativa certa é {content.correct_answer}. "
-            f"Erros comuns nessa questão: {mistakes or 'reveja a resolução com atenção.'}"
+        return (
+            True,
+            score,
+            "Resposta correta! Confira a resolução passo a passo para consolidar o raciocínio.",
         )
-    return is_correct, score, feedback
+
+    pistas = [p.strip() for p in content.hints if p.strip()]
+    erros = [e.strip() for e in content.common_mistakes if e.strip()]
+
+    partes: list[str] = []
+    if erros:
+        partes.append(f"Uma armadilha comum nessa questão: {erros[tentativas_anteriores % len(erros)]}")
+    if pistas:
+        partes.append(f"Dica: {pistas[tentativas_anteriores % len(pistas)]}")
+    if not partes:
+        partes.append("Releia o enunciado e confira cada passo do cálculo — o erro costuma estar em um deles.")
+
+    return False, score, " ".join(partes)

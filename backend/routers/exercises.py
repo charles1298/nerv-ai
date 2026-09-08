@@ -94,15 +94,21 @@ async def attempt(
             "Correção automática deste tipo chega na Fase 2 (redacao_agent)",
         )
 
-    is_correct, score, feedback = grade_multiple_choice(exercise, body.answer)
+    # Contado antes de corrigir: a dica do feedback gira conforme a tentativa,
+    # para o aluno que errou duas vezes não reler exatamente a mesma frase.
+    previous_attempts = (
+        await db.scalar(
+            select(func.count(ExerciseAttempt.id)).where(
+                ExerciseAttempt.exercise_id == exercise.id,
+                ExerciseAttempt.student_id == student.id,
+            )
+        )
+        or 0
+    )
+
+    is_correct, score, feedback = grade_multiple_choice(exercise, body.answer, previous_attempts)
 
     # Gamificação: XP por acerto na 1ª ou 2ª tentativa (seção 8)
-    previous_attempts = await db.scalar(
-        select(func.count(ExerciseAttempt.id)).where(
-            ExerciseAttempt.exercise_id == exercise.id,
-            ExerciseAttempt.student_id == student.id,
-        )
-    )
     if is_correct and previous_attempts == 0:
         await award_xp(db, student.id, "exercicio_correto_primeira_tentativa")
     elif is_correct and previous_attempts == 1:
