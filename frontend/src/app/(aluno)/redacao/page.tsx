@@ -1,9 +1,17 @@
 "use client";
 
 // Editor de redação com correção ENEM e histórico de evolução (seção 7.1).
+//
+// Visual portado do pacote "AI Tutor Studio". No protótipo o painel lateral
+// mostrava competências com valores fixos; aqui ele lê a última correção real
+// do aluno, e cada barra é a nota do critério sobre os 200 pontos possíveis.
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
 import { api, ApiError, type EssayPublic } from "@/lib/api";
+import { Reveal } from "@/components/nerv/Reveal";
+import { ProgressBar } from "@/components/nerv/Cards";
 
 const CRITERIOS: Record<string, string> = {
   C1: "Norma culta",
@@ -12,6 +20,9 @@ const CRITERIOS: Record<string, string> = {
   C4: "Mecanismos linguísticos",
   C5: "Proposta de intervenção",
 };
+
+// Cada competência do ENEM vale de 0 a 200; a barra mostra a fração disso.
+const NOTA_MAXIMA_CRITERIO = 200;
 
 export default function RedacaoPage() {
   const [theme, setTheme] = useState("");
@@ -24,7 +35,10 @@ export default function RedacaoPage() {
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
 
   useEffect(() => {
-    api.listEssays().then(setHistory).catch(() => undefined);
+    api
+      .listEssays()
+      .then(setHistory)
+      .catch(() => undefined);
   }, []);
 
   const submit = async () => {
@@ -42,142 +56,189 @@ export default function RedacaoPage() {
     }
   };
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <h1 className="font-display text-2xl font-bold">Redação ENEM</h1>
+  const ultima = result ?? history[0];
+  const criteriosUltima = Object.entries(ultima?.notas_por_criterio ?? {});
 
-      <div className="space-y-3 rounded-2xl border border-nerv-border bg-nerv-surface p-6">
-        <input
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          placeholder="Tema da redação (ex.: Desafios da inclusão digital no Brasil)"
-          className="w-full rounded-lg border border-nerv-border bg-nerv-bg px-3 py-2 text-sm outline-none focus:border-nerv-purple"
-        />
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={14}
-          placeholder="Escreva sua redação aqui (mínimo ~200 caracteres)..."
-          className="w-full resize-y rounded-lg border border-nerv-border bg-nerv-bg px-3 py-2 text-sm leading-relaxed outline-none focus:border-nerv-purple"
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-nerv-muted">{wordCount} palavras</span>
-          <button
-            onClick={() => void submit()}
-            disabled={loading || theme.length < 5 || content.length < 200}
-            className="rounded-lg bg-nerv-purple px-5 py-2 font-display text-sm font-medium transition hover:bg-nerv-purple-dim disabled:opacity-50"
-          >
-            {loading ? "Corrigindo (pode levar ~1 min)..." : "Enviar para correção"}
-          </button>
-        </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 pb-28 pt-8 md:pb-12">
+      <Reveal>
+        <h1 className="font-display text-3xl font-bold sm:text-4xl">
+          Sua <span className="text-gradient">redação</span>, corrigida em minutos
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Escreva ou cole seu texto. O NERV corrige nos 5 critérios do ENEM e explica o que
+          melhorar.
+        </p>
+      </Reveal>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <Reveal delay={0.08}>
+          <div className="surface-card flex h-full flex-col p-5 sm:p-6">
+            <input
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              placeholder="Tema da redação (ex.: Desafios da inclusão digital no Brasil)"
+              className="w-full rounded-xl border border-border bg-surface-2/60 px-4 py-3 text-sm outline-none transition-colors duration-300 placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Escreva ou cole sua redação aqui..."
+              className="mt-3 min-h-64 flex-1 resize-y rounded-2xl bg-surface-2/60 p-4 text-sm leading-relaxed outline-none transition-colors duration-300 placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+            />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <motion.button
+                type="button"
+                onClick={() => void submit()}
+                whileTap={{ scale: 0.97 }}
+                disabled={loading || theme.trim().length < 5 || content.trim().length < 200}
+                className="focus-nice inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-opacity duration-300 disabled:opacity-40"
+              >
+                <Sparkles className="size-4" />
+                {loading ? "Corrigindo, leva ~1 min..." : "Corrigir agora"}
+              </motion.button>
+              <span className="text-xs text-muted-foreground">
+                {wordCount} {wordCount === 1 ? "palavra" : "palavras"}
+                {content.trim().length < 200 ? " · mínimo ~200 caracteres" : ""}
+              </span>
+            </div>
+            {error && (
+              <p className="mt-3 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.16}>
+          <div className="surface-card h-full p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-wide text-primary">
+              {result ? "Correção agora" : "Última correção"}
+            </p>
+            {ultima ? (
+              <>
+                <p className="mt-2 font-display text-4xl font-bold text-primary">
+                  {ultima.nota_total}
+                </p>
+                <p className="text-sm text-muted-foreground">de 1000 pontos</p>
+                {ultima.nota_estimada_real_enem && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Estimativa no ENEM real: {ultima.nota_estimada_real_enem}
+                  </p>
+                )}
+                <div className="mt-6 space-y-4">
+                  {criteriosUltima.map(([c, nota]) => (
+                    <ProgressBar
+                      key={c}
+                      label={CRITERIOS[c] ?? c}
+                      value={Math.round((nota / NOTA_MAXIMA_CRITERIO) * 100)}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                Você ainda não enviou nenhuma redação. Assim que enviar a primeira, a nota por
+                competência aparece aqui.
+              </p>
+            )}
+          </div>
+        </Reveal>
       </div>
 
-      {result && (
-        <div className="space-y-4 rounded-2xl border border-nerv-purple/50 bg-nerv-surface p-6">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-bold">Resultado</h2>
-            <p className="font-display text-4xl font-bold text-nerv-neon">
-              {result.nota_total}
-              <span className="text-base text-nerv-muted">/1000</span>
-            </p>
-          </div>
-          {result.nota_estimada_real_enem && (
-            <p className="text-sm text-nerv-muted">
-              Estimativa no ENEM real: {result.nota_estimada_real_enem}
-            </p>
-          )}
+      <AnimatePresence>
+        {result ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="surface-card mt-6 space-y-6 p-5 sm:p-7"
+          >
+            <h2 className="font-display text-lg font-bold">O que o NERV viu no seu texto</h2>
 
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            {Object.entries(result.notas_por_criterio ?? {}).map(([c, nota]) => (
-              <div key={c} className="rounded-lg border border-nerv-border p-3 text-center">
-                <p className="text-[10px] text-nerv-muted">
-                  {c} — {CRITERIOS[c] ?? ""}
+            {result.analise_detalhada && (
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <h3 className="text-sm font-bold text-primary">Pontos fortes</h3>
+                  <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {result.analise_detalhada.pontos_fortes.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-streak">O que dá para melhorar</h3>
+                  <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {result.analise_detalhada.pontos_fracos.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {result.analise_detalhada?.erros_gramaticais?.length ? (
+              <details>
+                <summary className="focus-nice cursor-pointer list-none text-sm font-semibold text-primary">
+                  Correções de escrita ({result.analise_detalhada.erros_gramaticais.length})
+                </summary>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {result.analise_detalhada.erros_gramaticais.map((e, i) => (
+                    <li key={i} className="rounded-2xl bg-surface-2/60 p-4">
+                      <p className="text-destructive line-through">{e.trecho}</p>
+                      <p className="mt-1 text-primary">{e.correcao}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{e.erro}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+
+            {result.reescrita_sugerida && (
+              <details>
+                <summary className="focus-nice cursor-pointer list-none text-sm font-semibold text-primary">
+                  Como esse trecho poderia ficar
+                </summary>
+                <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-surface-2/60 p-4 text-sm leading-relaxed text-muted-foreground">
+                  {result.reescrita_sugerida}
                 </p>
-                <p className="font-display text-xl font-bold">{nota}</p>
-              </div>
-            ))}
-          </div>
+              </details>
+            )}
 
-          {result.analise_detalhada && (
-            <div className="grid gap-4 md:grid-cols-2">
+            {result.proximos_passos?.length ? (
               <div>
-                <h3 className="text-sm font-bold text-nerv-neon">Pontos fortes</h3>
-                <ul className="mt-1 list-inside list-disc text-sm text-nerv-muted">
-                  {result.analise_detalhada.pontos_fortes.map((p, i) => (
+                <h3 className="text-sm font-bold">Próximos passos</h3>
+                <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {result.proximos_passos.map((p, i) => (
                     <li key={i}>{p}</li>
                   ))}
                 </ul>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-red-400">Pontos fracos</h3>
-                <ul className="mt-1 list-inside list-disc text-sm text-nerv-muted">
-                  {result.analise_detalhada.pontos_fracos.map((p, i) => (
-                    <li key={i}>{p}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {result.analise_detalhada?.erros_gramaticais?.length ? (
-            <details>
-              <summary className="cursor-pointer text-sm text-nerv-purple">
-                Erros gramaticais ({result.analise_detalhada.erros_gramaticais.length})
-              </summary>
-              <ul className="mt-2 space-y-2 text-sm">
-                {result.analise_detalhada.erros_gramaticais.map((e, i) => (
-                  <li key={i} className="rounded-lg border border-nerv-border p-3">
-                    <p className="text-red-400 line-through">{e.trecho}</p>
-                    <p className="text-nerv-neon">{e.correcao}</p>
-                    <p className="text-xs text-nerv-muted">{e.erro}</p>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-
-          {result.reescrita_sugerida && (
-            <details>
-              <summary className="cursor-pointer text-sm text-nerv-purple">
-                Reescrita sugerida
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap rounded-lg border border-nerv-border p-3 text-sm text-nerv-muted">
-                {result.reescrita_sugerida}
-              </p>
-            </details>
-          )}
-
-          {result.proximos_passos?.length ? (
-            <div>
-              <h3 className="text-sm font-bold">Próximos passos</h3>
-              <ul className="mt-1 list-inside list-disc text-sm text-nerv-muted">
-                {result.proximos_passos.map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      )}
+            ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {history.length > 0 && (
-        <div className="rounded-2xl border border-nerv-border bg-nerv-surface p-6">
-          <h2 className="font-display font-bold">Histórico</h2>
-          <ul className="mt-3 space-y-2">
-            {history.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center justify-between rounded-lg border border-nerv-border px-4 py-2 text-sm"
-              >
-                <span className="truncate text-nerv-muted">{e.theme}</span>
-                <span className="ml-4 font-display font-bold text-nerv-purple">
-                  {e.nota_total}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Reveal delay={0.24}>
+          <div className="surface-card mt-6 p-5 sm:p-6">
+            <h2 className="font-display font-bold">Suas redações</h2>
+            <ul className="mt-3 space-y-2">
+              {history.map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between gap-4 rounded-2xl bg-surface-2/50 px-4 py-3 text-sm"
+                >
+                  <span className="truncate text-muted-foreground">{e.theme}</span>
+                  <span className="shrink-0 font-display font-bold text-primary">
+                    {e.nota_total}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Reveal>
       )}
     </div>
   );
