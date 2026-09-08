@@ -86,6 +86,23 @@ verdade. Serve para conferir que a stack funciona; nao serve para uso real com
 dado de escola. Assim que houver dominio, volte `NERV_BIND=127.0.0.1`, rode
 `ufw delete allow 18080/tcp` e siga para a secao 4.
 
+## 3.2 Trocar uma variavel de ambiente
+
+Depois de editar o `.env`, **recrie** o container. `docker compose restart` NAO
+serve: ele reinicia o processo reaproveitando o container antigo, que carrega o
+ambiente com que foi criado — a variavel nova simplesmente nao chega, e o app
+segue reclamando que ela nao existe.
+
+```bash
+cd /opt/nerv-ai/infra
+docker compose --env-file ../.env -f docker-compose.prod.yml up -d backend
+docker exec nerv-ai-backend printenv AI_API_KEY   # confirma que chegou
+```
+
+Isso vale para variavel de runtime (AI_API_KEY, MEM0_API_KEY, RESEND_API_KEY...).
+Ja `PUBLIC_BASE_URL` entra no bundle do frontend em build time: alem do `up -d`,
+exige `--build` do servico frontend.
+
 ## 4. Publicar no dominio (proxy que ja existe na VPS)
 
 Isto **acrescenta** um site; nao mexe nos que ja estao la. Exemplo para nginx do
