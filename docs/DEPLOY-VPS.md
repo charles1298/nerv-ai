@@ -58,7 +58,9 @@ As migrations rodam sozinhas no start (`alembic upgrade head`).
 Dados de demonstracao (escola, usuarios, materias), se quiser:
 
 ```bash
-docker compose -p nerv-ai exec backend python ../scripts/seed_dev.py
+# PYTHONPATH=/app porque o script espera o layout do repo (scripts/ ao lado de
+# backend/), e na imagem o conteudo de backend/ e' a propria raiz /app.
+docker compose -p nerv-ai exec -e PYTHONPATH=/app backend python scripts/seed_dev.py
 ```
 
 ## 3.1 Acesso provisorio por IP (sem dominio)

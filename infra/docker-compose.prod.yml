@@ -64,6 +64,9 @@ services:
       # Fora do serverless o disco persiste: e' isto que faz o upload de foto
       # (visao multimodal) funcionar sem depender do R2.
       - uploads:/app/uploads
+      # O Dockerfile copia so backend/, entao scripts/ nao existe na imagem.
+      # Montado read-only para dar acesso a seed_dev, seed_bncc e seed_enem.
+      - ../scripts:/app/scripts:ro
     # Em producao o lifespan nao cria schema — sem o upgrade o banco sobe vazio.
     command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
     networks: [nerv-ai-net]
