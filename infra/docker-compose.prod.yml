@@ -95,9 +95,14 @@ services:
     volumes:
       - ./nginx/nerv-ai.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      # UNICA porta publicada por esta stack, e so no loopback: o proxy que ja
-      # existe na VPS aponta para ca. Nao expoe nada para a internet direto.
-      - "127.0.0.1:${NERV_HTTP_PORT:-18080}:80"
+      # UNICA porta publicada por esta stack. O padrao e' loopback: quem fala com
+      # ela e' o proxy que ja existe na VPS.
+      #
+      # NERV_BIND=0.0.0.0 abre no IP publico (acesso provisorio sem dominio) — e
+      # ai roda em HTTP puro, sem TLS. So para validar; nao para uso real, e
+      # lembrando que o Docker escreve iptables por cima do ufw: publicar em
+      # 0.0.0.0 expoe de fato, mesmo com o firewall fechado.
+      - "${NERV_BIND:-127.0.0.1}:${NERV_HTTP_PORT:-18080}:80"
     networks: [nerv-ai-net]
     depends_on:
       - frontend

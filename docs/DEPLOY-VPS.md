@@ -61,6 +61,29 @@ Dados de demonstracao (escola, usuarios, materias), se quiser:
 docker compose -p nerv-ai exec backend python ../scripts/seed_dev.py
 ```
 
+## 3.1 Acesso provisorio por IP (sem dominio)
+
+Para validar antes de existir DNS, publique a porta na interface publica:
+
+```bash
+# no .env
+NERV_BIND=0.0.0.0
+PUBLIC_BASE_URL=http://SEU.IP.AQUI:18080
+```
+
+```bash
+ufw allow 18080/tcp
+docker compose --env-file ../.env -f docker-compose.prod.yml up -d --build
+```
+
+O endereco vira `http://SEU.IP.AQUI:18080`.
+
+**Isto e' HTTP puro.** Senha de aluno e professora trafegam em texto claro, e o
+Docker publica a porta escrevendo iptables por cima do ufw — ela fica exposta de
+verdade. Serve para conferir que a stack funciona; nao serve para uso real com
+dado de escola. Assim que houver dominio, volte `NERV_BIND=127.0.0.1`, rode
+`ufw delete allow 18080/tcp` e siga para a secao 4.
+
 ## 4. Publicar no dominio (proxy que ja existe na VPS)
 
 Isto **acrescenta** um site; nao mexe nos que ja estao la. Exemplo para nginx do
