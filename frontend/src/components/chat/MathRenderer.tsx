@@ -25,10 +25,19 @@ interface MathRendererProps {
 const CIFRAO_REAL = "\uE000";
 
 export function MathRenderer({ content }: MathRendererProps) {
-  // `R\$` (já escapado para LaTeX) não casa aqui, porque tem a barra no meio —
-  // então fórmula bem escrita passa intacta.
+  // Duas armadilhas do cifrão, e elas são opostas:
+  //
+  // 1. `R$ 27,00` é dinheiro escrito à brasileira, sem escape. O replace tira
+  //    esse cifrão de circulação antes da separação. `R\$`, já escapado para
+  //    LaTeX, não casa aqui porque tem a barra no meio — fórmula bem escrita
+  //    passa intacta.
+  // 2. Dentro da fórmula o modelo escreve `$R\$ 500,00$`, com o cifrão
+  //    escapado. Um `[^$]+` pararia nesse escape e fecharia a fórmula cedo,
+  //    desalinhando todos os delimitadores seguintes: o enunciado inteiro saía
+  //    renderizado letra por letra. O `\\.` consome o par escapado
+  //    antes que o cifrão possa fechar a fórmula.
   const parts = useMemo(
-    () => content.replace(/R\$/g, CIFRAO_REAL).split(/(\$[^$]+\$)/g),
+    () => content.replace(/R\$/g, CIFRAO_REAL).split(/(\$(?:\\.|[^$\\])+\$)/g),
     [content],
   );
 
