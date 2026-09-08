@@ -4,11 +4,14 @@ Em desenvolvimento o schema é criado via create_all; em staging/produção use
 Alembic (alembic upgrade head) — o lifespan não toca no schema fora de dev.
 """
 
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
 
@@ -26,6 +29,7 @@ from routers import (
     subjects,
     upload,
 )
+from services import storage_service
 
 logger = structlog.get_logger()
 
@@ -69,6 +73,26 @@ app.include_router(redacoes.router)
 app.include_router(gamification.router)
 app.include_router(reports.router)
 app.include_router(lgpd.router)
+
+# Sem R2, o storage grava em disco e storage_service.public_url() devolve
+# {backend_url}/uploads/<key>. Sem este mount essa URL e 404 e a foto enviada
+# pelo aluno nunca aparece — e o caminho padrao fora de serverless.
+#
+# Em serverless o filesystem e somente-leitura: o mkdir levantaria OSError
+# durante o import e derrubaria a aplicacao inteira, nao so o upload.
+if not storage_service.r2_enabled() and not os.getenv("VERCEL"):
+    _upload_dir = Path(settings.local_upload_dir)
+    try:
+        _upload_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("local_uploads_indisponivel", path=str(_upload_dir), error=str(exc))
+    else:
+        app.mount(
+            f"/{settings.local_upload_dir}",
+            StaticFiles(directory=_upload_dir),
+            name="uploads",
+        )
+        logger.info("local_uploads_servidos", path=str(_upload_dir))
 
 
 @app.get("/health", tags=["health"])

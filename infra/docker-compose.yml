@@ -1,3 +1,4 @@
+# Stack de DESENVOLVIMENTO. Para producao na VPS use docker-compose.prod.yml.
 name: nerv-ai
 
 services:
@@ -29,8 +30,9 @@ services:
 
   backend:
     build:
-      context: ../backend
-      dockerfile: ../infra/Dockerfile.backend
+      # Contexto e' a RAIZ do repo: o Dockerfile.backend faz `COPY backend/...`.
+      context: ..
+      dockerfile: infra/Dockerfile.backend
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql+asyncpg://nerv:nerv@db:5432/nerv_ai
@@ -47,8 +49,10 @@ services:
     build:
       context: ../frontend
       dockerfile: ../infra/Dockerfile.frontend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      args:
+        # Build time: o Next inlineia isto no bundle do navegador.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_DEMO_MODE: "false"
     ports:
       - "3000:3000"
     depends_on:
