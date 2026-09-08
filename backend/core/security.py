@@ -105,6 +105,9 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "exercise_generation": (20, 60),
     "image_uploads": (10, 60),
     "redacao_submission": (5, 3600),
+    # Gerar cronograma e' uma chamada longa ao modelo (plano de semanas inteiras);
+    # o aluno nao precisa de mais que alguns por hora.
+    "cronograma_generation": (5, 3600),
 }
 
 

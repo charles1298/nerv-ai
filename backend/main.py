@@ -21,6 +21,7 @@ from core.config import settings
 from core.database import Base, engine
 from routers import (
     auth,
+    cronograma,
     exercises,
     gamification,
     lgpd,
@@ -66,6 +67,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(cronograma.router)
 app.include_router(students.router)
 app.include_router(subjects.router)
 app.include_router(sessions.router)

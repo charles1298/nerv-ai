@@ -231,3 +231,38 @@ class KnowledgeChunk(Base):
     source: Mapped[str | None] = mapped_column(String(50))  # bncc | enem | livro_didatico
     embedding = mapped_column(Vector(1536).with_variant(JSON(), "sqlite"))
     meta: Mapped[dict] = mapped_column("metadata", JsonColumn, default=dict)
+
+
+class StudyPlan(Base):
+    """Cronograma de estudos personalizado (seção 5.6 do CLAUDE.md).
+
+    O plano nasce da restrição real do aluno — quantos dias por semana e quantos
+    minutos por dia ele tem — cruzada com o desempenho dele em `student_performance`.
+    Um cronograma que ignora o tempo disponível não é seguido, e um que ignora as
+    dificuldades do aluno é só um calendário bonito.
+
+    `semanas` guarda a estrutura inteira gerada (semana → dia → blocos), validada
+    por schemas.cronograma antes de chegar aqui.
+    """
+
+    __tablename__ = "study_plans"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+
+    # Restrições informadas pelo aluno
+    objetivo: Mapped[str] = mapped_column(Text)
+    semanas_total: Mapped[int] = mapped_column(Integer)
+    dias_por_semana: Mapped[int] = mapped_column(Integer)
+    minutos_por_dia: Mapped[int] = mapped_column(Integer)
+    materias_foco: Mapped[list] = mapped_column(JsonColumn, default=list)
+
+    # Plano gerado
+    resumo: Mapped[str] = mapped_column(Text)
+    estrategia: Mapped[str] = mapped_column(Text)
+    semanas: Mapped[list] = mapped_column(JsonColumn, default=list)
+    dicas: Mapped[list] = mapped_column(JsonColumn, default=list)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
