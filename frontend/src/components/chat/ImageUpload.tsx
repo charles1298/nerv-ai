@@ -3,6 +3,7 @@
 // Botão de upload de foto no chat — prova/caderno → análise por visão (seção 5.4).
 
 import { useRef, useState } from "react";
+import { Image as ImageIcon, Loader2 } from "lucide-react";
 import { uploadImage } from "@/lib/api";
 
 interface ImageUploadProps {
@@ -53,12 +54,17 @@ export function ImageUpload({
       />
       <button
         type="button"
+        aria-label="Enviar uma foto do exercício"
         title="Enviar foto de prova ou caderno"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || uploading}
-        className="rounded-xl border border-nerv-border px-4 text-lg transition hover:border-nerv-purple disabled:opacity-50"
+        className="focus-nice grid size-11 shrink-0 place-items-center rounded-2xl text-muted-foreground transition-colors duration-300 hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
       >
-        {uploading ? "⏳" : "📷"}
+        {uploading ? (
+          <Loader2 className="size-5 animate-spin text-primary" />
+        ) : (
+          <ImageIcon className="size-5" />
+        )}
       </button>
     </>
   );

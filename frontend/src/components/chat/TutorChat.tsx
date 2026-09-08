@@ -1,16 +1,36 @@
 "use client";
 
 // Interface de tutoria com streaming SSE (seção 7.1 do CLAUDE.md).
+//
+// O visual e as animações vêm do pacote "AI Tutor Studio". A diferença
+// estrutural em relação ao protótipo: lá o envio resolvia uma Promise<string>
+// com a resposta pronta; aqui a resposta chega em pedaços por SSE, então a
+// bolha do assistente nasce vazia e vai sendo preenchida. O indicador
+// "NERV está pensando" some no primeiro caractere, não no fim da resposta.
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUp, RotateCcw, Sparkle } from "lucide-react";
 import { api, streamChat } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 import { ImageUpload } from "./ImageUpload";
 import { MessageBubble } from "./MessageBubble";
 
 interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   content: string;
 }
+
+const SUGESTOES = [
+  "Explica fração de um jeito fácil",
+  "Me ajuda na interpretação de texto",
+  "Como funciona a fotossíntese?",
+  "Quero treinar tabuada jogando",
+];
+
+let contador = 0;
+const novoId = () => `m${++contador}`;
 
 export function TutorChat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -19,6 +39,9 @@ export function TutorChat() {
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const primeiroNome = useAuthStore((s) => s.user?.name?.split(" ")[0]) ?? "";
 
   useEffect(() => {
     api
@@ -28,17 +51,26 @@ export function TutorChat() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isThinking]);
 
-  const send = async () => {
-    const content = input.trim();
+  const send = async (texto: string) => {
+    const content = texto.trim();
     if (!content || !sessionId || isThinking) return;
 
     setInput("");
     setError(null);
     setIsThinking(true);
-    setMessages((prev) => [...prev, { role: "user", content }, { role: "assistant", content: "" }]);
+    inputRef.current?.focus();
+    setMessages((prev) => [
+      ...prev,
+      { id: novoId(), role: "user", content },
+      { id: novoId(), role: "assistant", content: "" },
+    ]);
 
     try {
       await streamChat(sessionId, content, (chunk) => {
@@ -50,6 +82,7 @@ export function TutorChat() {
         });
       });
     } catch {
+      // Remove a bolha vazia do assistente: bolha em branco confunde o aluno.
       setMessages((prev) => prev.slice(0, -1));
       setError("Falha ao gerar resposta. Tente novamente.");
     } finally {
@@ -57,42 +90,144 @@ export function TutorChat() {
     }
   };
 
+  const novaConversa = async () => {
+    setMessages([]);
+    setError(null);
+    setInput("");
+    // A sessão vive no servidor: limpar a tela sem abrir outra manteria todo o
+    // histórico anterior dentro do contexto do tutor.
+    try {
+      const s = await api.createSession();
+      setSessionId(s.id);
+    } catch {
+      setError("Não foi possível iniciar uma nova conversa.");
+    }
+  };
+
+  const vazio = messages.length === 0;
+  const aguardandoPrimeiroChunk = isThinking && messages[messages.length - 1]?.content === "";
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {messages.length === 0 && (
-          <div className="mt-20 text-center text-nerv-muted">
-            <p className="font-display text-xl">Oi! Eu sou o NERV. 👋</p>
-            <p className="mt-2 text-sm">
-              Me conta o que você quer estudar hoje — pode ser dúvida de prova, exercício ou
-              só curiosidade.
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 pt-6">
+        <AnimatePresence initial={false}>
+          {vazio ? (
+            <motion.div
+              key="vazio"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/nerv-avatar.png"
+                alt="NERV, seu tutor"
+                width={816}
+                height={816}
+                className="size-24 animate-float drop-shadow-[0_18px_40px_var(--glow)]"
+              />
+              <h1 className="text-2xl font-bold sm:text-3xl">
+                Oi{primeiroNome ? `, ${primeiroNome}` : ""}! Eu sou o{" "}
+                <span className="text-gradient">NERV</span>
+              </h1>
+              <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+                Me conta o que você quer estudar hoje. Pode ser dúvida de prova, exercício ou só
+                curiosidade.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                {SUGESTOES.map((s, i) => (
+                  <motion.button
+                    key={s}
+                    type="button"
+                    onClick={() => void send(s)}
+                    disabled={!sessionId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.07, duration: 0.4 }}
+                    whileHover={{ y: -2 }}
+                    className="focus-nice inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3.5 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+                  >
+                    <Sparkle className="size-3.5 text-primary" />
+                    {s}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <div className="flex flex-col gap-4">
+          <AnimatePresence initial={false}>
+            {messages.map((m) =>
+              // A bolha do assistente só entra quando o texto começa a chegar;
+              // até lá quem representa a espera é o indicador logo abaixo.
+              m.role === "assistant" && m.content === "" ? null : (
+                <MessageBubble key={m.id} role={m.role} content={m.content} />
+              ),
+            )}
+          </AnimatePresence>
+
+          {aguardandoPrimeiroChunk ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-3"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/nerv-avatar.png"
+                alt=""
+                width={816}
+                height={816}
+                className="size-8 shrink-0"
+              />
+              <span className="shimmer-text text-sm font-medium">NERV está pensando</span>
+              <span className="flex items-end gap-1 pb-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="size-1.5 animate-dot rounded-full bg-primary"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </span>
+            </motion.div>
+          ) : null}
+
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
             </p>
-          </div>
-        )}
-        {messages.map((m, i) => (
-          <MessageBubble key={i} role={m.role} content={m.content} />
-        ))}
-        {isThinking && messages[messages.length - 1]?.content === "" && (
-          <p className="animate-pulse text-sm text-nerv-neon">NERV está pensando...</p>
-        )}
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <div ref={bottomRef} />
+          ) : null}
+        </div>
+
+        <div ref={bottomRef} className="h-2" />
       </div>
 
-      <div className="border-t border-nerv-border p-4">
-        <div className="flex gap-2">
+      {/* Composer */}
+      <div className="sticky bottom-0 mt-4 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-24 pt-4 md:pb-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send(input);
+          }}
+          className="shadow-lift mx-auto flex w-full max-w-3xl items-end gap-2 rounded-3xl border border-border bg-surface/85 p-2 backdrop-blur-xl transition-colors duration-300 focus-within:border-primary/50"
+        >
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void send();
+                void send(input);
               }
             }}
             rows={1}
-            placeholder="Digite sua dúvida..."
-            className="flex-1 resize-none rounded-xl border border-nerv-border bg-nerv-surface px-4 py-3 text-sm outline-none focus:border-nerv-purple"
+            placeholder="Escreva sua dúvida..."
+            className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground"
           />
           <ImageUpload
             sessionId={sessionId}
@@ -102,23 +237,44 @@ export function TutorChat() {
               setError(null);
               setMessages((prev) => [
                 ...prev,
-                { role: "user", content: input.trim() || "📷 Enviei uma foto para análise." },
+                {
+                  id: novoId(),
+                  role: "user",
+                  content: input.trim() || "Enviei uma foto para análise.",
+                },
               ]);
               setInput("");
             }}
             onAnalysis={(analysis) =>
-              setMessages((prev) => [...prev, { role: "assistant", content: analysis }])
+              setMessages((prev) => [
+                ...prev,
+                { id: novoId(), role: "assistant", content: analysis },
+              ])
             }
             onError={(message) => setError(message)}
           />
-          <button
-            onClick={() => void send()}
-            disabled={isThinking || !sessionId}
-            className="rounded-xl bg-nerv-purple px-5 font-display font-medium transition hover:bg-nerv-purple-dim disabled:opacity-50"
+          <motion.button
+            type="submit"
+            aria-label="Enviar"
+            disabled={!input.trim() || isThinking || !sessionId}
+            whileTap={{ scale: 0.92 }}
+            className="focus-nice grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground transition-opacity duration-300 disabled:opacity-40"
           >
-            Enviar
-          </button>
-        </div>
+            <ArrowUp className="size-5" />
+          </motion.button>
+        </form>
+
+        {!vazio ? (
+          <div className="mx-auto mt-2 flex w-full max-w-3xl justify-end">
+            <button
+              type="button"
+              onClick={() => void novaConversa()}
+              className="focus-nice inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <RotateCcw className="size-3.5" /> Nova conversa
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -4,10 +4,16 @@
   "description": "Tutor de IA educacional alinhado à BNCC, disponível 24h.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0A0A0F",
-  "theme_color": "#7C3AED",
+  "background_color": "#08120E",
+  "theme_color": "#38DEA8",
   "lang": "pt-BR",
   "icons": [
+    {
+      "src": "/nerv-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon.svg",
       "sizes": "any",
