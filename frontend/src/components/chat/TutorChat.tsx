@@ -38,8 +38,11 @@ export function TutorChat() {
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Só acompanha o texto se o aluno estiver no fim da conversa. Se ele subiu
+  // para reler algo, puxá-lo de volta a cada pedaço seria tirar a leitura da mão dele.
+  const grudadoNoFim = useRef(true);
 
   const primeiroNome = useAuthStore((s) => s.user?.name?.split(" ")[0]) ?? "";
 
@@ -54,9 +57,21 @@ export function TutorChat() {
     inputRef.current?.focus();
   }, []);
 
+  // Rolagem instantânea, não suave. Cada pedaço do stream dispara este efeito;
+  // com `behavior: "smooth"` a animação reinicia dezenas de vezes por segundo e
+  // nunca assenta — é isso que dá a sensação de a conversa ficar "puxando".
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!grudadoNoFim.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, isThinking]);
+
+  const aoRolar = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanciaDoFim = el.scrollHeight - el.scrollTop - el.clientHeight;
+    grudadoNoFim.current = distanciaDoFim < 80;
+  };
 
   const send = async (texto: string) => {
     const content = texto.trim();
@@ -66,6 +81,8 @@ export function TutorChat() {
     setError(null);
     setIsThinking(true);
     inputRef.current?.focus();
+    // Quem acabou de perguntar quer ver a resposta, mesmo que estivesse lendo acima.
+    grudadoNoFim.current = true;
     setMessages((prev) => [
       ...prev,
       { id: novoId(), role: "user", content },
@@ -109,7 +126,11 @@ export function TutorChat() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 pt-6">
+      <div
+        ref={scrollRef}
+        onScroll={aoRolar}
+        className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 pt-6"
+      >
         {/* Sem AnimatePresence de propósito. A resposta chega por SSE e cada
             pedaço dispara um setMessages, então são dezenas de re-renders por
             segundo; a animação de saída era reiniciada a cada um e nunca
@@ -207,7 +228,7 @@ export function TutorChat() {
           ) : null}
         </div>
 
-        <div ref={bottomRef} className="h-2" />
+        <div className="h-2" />
       </div>
 
       {/* Composer */}
