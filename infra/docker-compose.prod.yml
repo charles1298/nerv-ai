@@ -1,0 +1,116 @@
+# Stack de PRODUCAO do NERV AI na VPS.
+#
+# ISOLAMENTO (a VPS ja hospeda outros projetos — nada aqui pode encostar neles):
+#   - Rede Docker propria (nerv-ai-net), sem contato com as outras stacks.
+#   - Um unico bind de porta no host, e mesmo assim so em 127.0.0.1. Portas 80 e
+#     443 NAO sao tocadas: quem serve os outros projetos continua no comando.
+#   - Postgres e Redis nao publicam porta alguma — so existem dentro da rede.
+#   - Nomes de container e volume prefixados com nerv-ai-, sem colisao possivel.
+#
+# Subir:
+#   cd infra
+#   docker compose --env-file ../.env -f docker-compose.prod.yml up -d --build
+#
+# O --env-file e' obrigatorio: sem ele o compose nao resolve os ${...} abaixo.
+
+name: nerv-ai
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: nerv-ai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-nerv_ai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [nerv-ai-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nerv-ai-redis
+    restart: unless-stopped
+    # appendonly: o Redis aqui guarda contador de rate limit, nao dado critico.
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redisdata:/data
+    networks: [nerv-ai-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      # Contexto e' a RAIZ do repo: o Dockerfile.backend faz `COPY backend/...`.
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    container_name: nerv-ai-backend
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nerv_ai}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Fora do serverless o disco persiste: e' isto que faz o upload de foto
+      # (visao multimodal) funcionar sem depender do R2.
+      - uploads:/app/uploads
+    # Em producao o lifespan nao cria schema — sem o upgrade o banco sobe vazio.
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+    networks: [nerv-ai-net]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../infra/Dockerfile.frontend
+      args:
+        # Build time, nao runtime: o Next grava isto no bundle do navegador.
+        # Origem unica -> caminho relativo /api no mesmo dominio.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_BASE_URL:?defina PUBLIC_BASE_URL no .env}/api
+        NEXT_PUBLIC_DEMO_MODE: "false"
+    container_name: nerv-ai-frontend
+    restart: unless-stopped
+    networks: [nerv-ai-net]
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nerv-ai-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nerv-ai.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      # UNICA porta publicada por esta stack, e so no loopback: o proxy que ja
+      # existe na VPS aponta para ca. Nao expoe nada para a internet direto.
+      - "127.0.0.1:${NERV_HTTP_PORT:-18080}:80"
+    networks: [nerv-ai-net]
+    depends_on:
+      - frontend
+      - backend
+
+networks:
+  nerv-ai-net:
+    name: nerv-ai-net
+
+volumes:
+  pgdata:
+    name: nerv-ai-pgdata
+  redisdata:
+    name: nerv-ai-redisdata
+  uploads:
+    name: nerv-ai-uploads
