@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Exercise, ExerciseAttempt, Topic, User
+from pydantic import ValidationError
+
 from schemas.exercises import ExerciseContent, TipoExercicio
 from services.ai_service import complete_json
 
@@ -62,6 +64,39 @@ async def compute_adaptive_difficulty(db: AsyncSession, student_id, topic_id) ->
     return current_level
 
 
+class ExerciseGenerationError(RuntimeError):
+    """O modelo não devolveu um exercício válido nas tentativas disponíveis."""
+
+
+# Modelos menores às vezes devolvem JSON malformado ou fora do schema. Na prática
+# a segunda chamada costuma passar, porque a saída não é determinística — então
+# uma retentativa evita transformar um soluço do provedor em erro na tela do aluno.
+TENTATIVAS_DE_GERACAO = 2
+
+
+async def _gerar_conteudo(user_prompt: str, student_id: str) -> ExerciseContent:
+    ultimo_erro: Exception | None = None
+    for tentativa in range(1, TENTATIVAS_DE_GERACAO + 1):
+        try:
+            raw = await complete_json(
+                system_prompt=EXERCISE_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                student_id=student_id,
+            )
+            return ExerciseContent.model_validate(raw)
+        except (ValueError, ValidationError) as e:
+            ultimo_erro = e
+            logger.warning(
+                "exercise_generation_invalid",
+                tentativa=tentativa,
+                de=TENTATIVAS_DE_GERACAO,
+                error=str(e),
+            )
+    raise ExerciseGenerationError(
+        "O modelo não devolveu um exercício válido"
+    ) from ultimo_erro
+
+
 async def generate_exercise(
     db: AsyncSession,
     student: User,
@@ -80,12 +115,7 @@ async def generate_exercise(
         + ("Use o estilo ENEM completo (texto motivador + 5 alternativas).\n" if enem_style else "")
     )
 
-    raw = await complete_json(
-        system_prompt=EXERCISE_SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        student_id=str(student.id),
-    )
-    content = ExerciseContent.model_validate(raw)
+    content = await _gerar_conteudo(user_prompt, str(student.id))
 
     exercise = Exercise(
         student_id=student.id,

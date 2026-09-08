@@ -9,7 +9,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from agents.exercise_agent import generate_exercise, grade_multiple_choice
+from agents.exercise_agent import (
+    ExerciseGenerationError,
+    generate_exercise,
+    grade_multiple_choice,
+)
 from core.database import get_db
 from core.security import rate_limit, require_role
 from models import Exercise, ExerciseAttempt, Topic, User
@@ -58,7 +62,15 @@ async def generate(
     )
     if topic is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tópico não encontrado")
-    exercise = await generate_exercise(db, student, topic, body.tipo)
+    try:
+        exercise = await generate_exercise(db, student, topic, body.tipo)
+    except ExerciseGenerationError:
+        # Falha do provedor de IA, não do aluno: 502 com texto que a tela mostra
+        # direto. Sem isto o ValueError subia cru e virava um "Erro 500" seco.
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "O gerador de exercícios não respondeu como esperado. Tente de novo em instantes.",
+        ) from None
     return _to_public(exercise)
 
 
