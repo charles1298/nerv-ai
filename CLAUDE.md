@@ -164,9 +164,30 @@ em nenhum agente:
 
 | Provedor | `AI_BASE_URL` | `AI_MODEL` |
 |---|---|---|
-| Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.5-flash` |
+| Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.1-flash-lite` |
 | OpenAI | (vazio) | `gpt-...` |
 | AI Gateway (Vercel) | `https://ai-gateway.vercel.sh/v1` | `anthropic/claude-opus-5` |
+
+**A escolha do modelo decide a cota, não só a qualidade.** No nível gratuito do
+Gemini a diferença entre modelos é brutal: `gemini-3.5-flash` dá **20
+requisições por dia**, o que não sustenta nem um aluno, enquanto
+`gemini-3.1-flash-lite` dá cerca de 1.000. Descoberto em 08/09/2026, quando a
+geração de exercícios passou a devolver 429 depois de poucos testes.
+
+Os nomes de modelo divulgados em blogs frequentemente não existem
+(`gemini-3-flash` retorna 404). A fonte confiável é a própria API:
+
+```bash
+curl -H "Authorization: Bearer $AI_API_KEY"   https://generativelanguage.googleapis.com/v1beta/openai/models
+```
+
+Cota estourada vira **429 com mensagem em português**, tratada por um handler
+global em `main.py` — antes subia como 500 seco na tela do aluno.
+
+> **LGPD:** camadas gratuitas costumam permitir que o provedor treine com os
+> dados enviados. O NERV processa conversa de menor de idade com nome, série e
+> dificuldades. Para escola real isso exige chave paga, com compromisso de não
+> treinar — é conformidade, não custo.
 
 Três decisões do módulo que não são óbvias:
 
