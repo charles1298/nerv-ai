@@ -8,9 +8,11 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import openai
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import text
@@ -93,6 +95,26 @@ if not storage_service.r2_enabled() and not os.getenv("VERCEL"):
             name="uploads",
         )
         logger.info("local_uploads_servidos", path=str(_upload_dir))
+
+
+@app.exception_handler(openai.RateLimitError)
+async def limite_do_provedor_de_ia(request: Request, exc: openai.RateLimitError) -> JSONResponse:
+    """Cota do provedor estourada — condição operacional, não falha do aluno.
+
+    Sem isto o RateLimitError sobe cru e a tela mostra "Erro 500", que não diz
+    nada a quem está estudando. Fica global porque atinge todo agente: exercício,
+    redação, relatório e visão passam pelo mesmo provedor.
+    """
+    logger.warning("ai_quota_excedida", path=request.url.path)
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": (
+                "O limite de uso da inteligência artificial foi atingido por agora. "
+                "Tente de novo daqui a alguns minutos."
+            )
+        },
+    )
 
 
 @app.get("/health", tags=["health"])
