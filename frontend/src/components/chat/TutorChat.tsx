@@ -9,7 +9,7 @@
 // "NERV está pensando" some no primeiro caractere, não no fim da resposta.
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowUp, RotateCcw, Sparkle } from "lucide-react";
 import { api, streamChat } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -110,64 +110,68 @@ export function TutorChat() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 pt-6">
-        <AnimatePresence initial={false}>
-          {vazio ? (
-            <motion.div
-              key="vazio"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/nerv-avatar.png"
-                alt="NERV, seu tutor"
-                width={816}
-                height={816}
-                className="size-24 animate-float drop-shadow-[0_18px_40px_var(--glow)]"
-              />
-              <h1 className="text-2xl font-bold sm:text-3xl">
-                Oi{primeiroNome ? `, ${primeiroNome}` : ""}! Eu sou o{" "}
-                <span className="text-gradient">NERV</span>
-              </h1>
-              <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-                Me conta o que você quer estudar hoje. Pode ser dúvida de prova, exercício ou só
-                curiosidade.
-              </p>
-              <div className="flex flex-wrap justify-center gap-2 pt-2">
-                {SUGESTOES.map((s, i) => (
-                  <motion.button
-                    key={s}
-                    type="button"
-                    onClick={() => void send(s)}
-                    disabled={!sessionId}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 + i * 0.07, duration: 0.4 }}
-                    whileHover={{ y: -2 }}
-                    className="focus-nice inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3.5 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:border-primary/40 hover:text-foreground disabled:opacity-50"
-                  >
-                    <Sparkle className="size-3.5 text-primary" />
-                    {s}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {/* Sem AnimatePresence de propósito. A resposta chega por SSE e cada
+            pedaço dispara um setMessages, então são dezenas de re-renders por
+            segundo; a animação de saída era reiniciada a cada um e nunca
+            concluía, deixando a tela de boas-vindas presa junto da conversa.
+            A entrada continua animada — é ela que o aluno realmente vê. */}
+        {vazio ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/nerv-avatar.png"
+              alt="NERV, seu tutor"
+              width={816}
+              height={816}
+              className="size-24 animate-float drop-shadow-[0_18px_40px_var(--glow)]"
+            />
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              Oi{primeiroNome ? `, ${primeiroNome}` : ""}! Eu sou o{" "}
+              <span className="text-gradient">NERV</span>
+            </h1>
+            <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+              Me conta o que você quer estudar hoje. Pode ser dúvida de prova, exercício ou só
+              curiosidade.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              {SUGESTOES.map((s, i) => (
+                <motion.button
+                  key={s}
+                  type="button"
+                  onClick={() => void send(s)}
+                  disabled={!sessionId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 + i * 0.07, duration: 0.4 }}
+                  whileHover={{ y: -2 }}
+                  className="focus-nice inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3.5 py-2 text-sm text-muted-foreground transition-colors duration-300 hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+                >
+                  <Sparkle className="size-3.5 text-primary" />
+                  {s}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
 
         <div className="flex flex-col gap-4">
-          <AnimatePresence initial={false}>
-            {messages.map((m) =>
-              // A bolha do assistente só entra quando o texto começa a chegar;
-              // até lá quem representa a espera é o indicador logo abaixo.
-              m.role === "assistant" && m.content === "" ? null : (
-                <MessageBubble key={m.id} role={m.role} content={m.content} />
-              ),
-            )}
-          </AnimatePresence>
+          {/* Sem AnimatePresence: MessageBubble é componente próprio, não um
+              motion direto, então a saída nunca seria rastreada — e ao limpar a
+              conversa o AnimatePresence ficaria esperando um callback que não
+              chega, prendendo as bolhas antigas na tela. Cada bolha anima a
+              própria entrada. */}
+          {messages.map((m) =>
+            // A bolha do assistente só entra quando o texto começa a chegar;
+            // até lá quem representa a espera é o indicador logo abaixo.
+            m.role === "assistant" && m.content === "" ? null : (
+              <MessageBubble key={m.id} role={m.role} content={m.content} />
+            ),
+          )}
 
           {aguardandoPrimeiroChunk ? (
             <motion.div

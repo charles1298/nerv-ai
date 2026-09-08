@@ -624,7 +624,29 @@ STUDENT_PROFILE_TEMPLATE = {
 
 ### 7.1 Interface do Aluno (`/aluno`)
 
-**Visual:** Dark mode por padrão, cyberpunk educacional. Paleta: preto profundo `#0A0A0F` + roxo `#7C3AED` + verde neon `#39FF14` (destaques). Typography: `Space Grotesk` (display) + `Inter` (corpo). Referência estética: Eva.Tech / Evangelion, mas adaptada para contexto escolar.
+**Visual:** Dark mode por padrão. Paleta preto profundo + esmeralda, toda em
+`oklch`: fundo `oklch(0.14 0.014 165)`, primária `oklch(0.82 0.15 165)`, com `xp`,
+`streak` e `badge` para a gamificação. Typography: `Space Grotesk` (display) +
+`DM Sans` (corpo). Os tokens vivem em `frontend/src/app/globals.css` e são
+expostos como utilitários no `tailwind.config.ts` — **nunca fixe cor em
+componente**.
+
+> **Histórico:** até 08/09/2026 a paleta era cyberpunk roxa (`#0A0A0F` + `#7C3AED`
+> + verde neon `#39FF14`), referência Evangelion. Foi substituída pelo design
+> system do pacote "AI Tutor Studio". As classes `nerv-*` daquela paleta seguem
+> existindo como **alias de transição** apontando para os tokens novos, para que
+> telas ainda não reconstruídas não fiquem sem cor; não use em código novo.
+
+As cores guardam apenas os componentes `oklch` na variável CSS, sem o wrapper: é
+o `<alpha-value>` do Tailwind v3 que faz `bg-primary/12` funcionar. Componentes
+compartilhados do design system ficam em `frontend/src/components/nerv/`
+(`Ambient`, `Reveal`, `NervLogo`, `NervNav`, `Cards`).
+
+**Animações — cuidado ao mexer:** o chat re-renderiza a cada pedaço do stream SSE,
+e `AnimatePresence` não sobrevive a isso: a animação de saída é reiniciada a cada
+render e nunca conclui, deixando o elemento preso na tela. Por isso o estado vazio
+e a lista de mensagens usam renderização condicional simples, animando só a
+entrada. `prefers-reduced-motion` desliga tudo isso globalmente no `globals.css`.
 
 **Telas principais:**
 - **Home/Dashboard:** Streak, XP, próxima sessão recomendada, exercícios pendentes.
