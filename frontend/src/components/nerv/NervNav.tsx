@@ -5,7 +5,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { CalendarDays, Home, MessageCircle, ListChecks, PenLine, LogOut } from "lucide-react";
+import {
+  CalendarDays,
+  Home,
+  ListChecks,
+  LogOut,
+  MessageCircle,
+  PenLine,
+  ScanSearch,
+} from "lucide-react";
 import { NervLogo } from "./NervLogo";
 
 const items = [
@@ -14,6 +22,7 @@ const items = [
   { href: "/exercicios", label: "Exercícios", icon: ListChecks },
   { href: "/redacao", label: "Redação", icon: PenLine },
   { href: "/cronograma", label: "Cronograma", icon: CalendarDays },
+  { href: "/resolver", label: "Resolver", icon: ScanSearch },
 ] as const;
 
 export function NervNav({
@@ -76,14 +85,14 @@ export function NervNav({
 
       {/* Tab bar do celular — um toque, sem atrito. */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl md:hidden">
-        <div className="mx-auto flex max-w-md items-stretch justify-between px-2 py-1.5">
+        <div className="mx-auto flex max-w-md items-stretch gap-1 overflow-x-auto px-2 py-1.5">
           {items.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`focus-nice flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[0.7rem] font-medium transition-colors duration-300 ${
+                className={`focus-nice flex w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl py-2 text-[0.7rem] font-medium transition-colors duration-300 ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >

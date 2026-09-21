@@ -37,7 +37,8 @@ nerv-ai/
 │   │   ├── redacao_agent.py     # Avaliação e feedback de redações
 │   │   ├── vision_agent.py      # Análise de fotos de provas/cadernos
 │   │   ├── report_agent.py      # Geração de relatórios pedagógicos
-│   │   └── cronograma_agent.py  # Cronogramas de estudo personalizados
+│   │   ├── cronograma_agent.py  # Cronogramas de estudo personalizados
+│   │   └── resolucao_agent.py   # Resolve exercícios trazidos pelo aluno
 │   ├── memory/
 │   │   ├── mem0_client.py       # Integração Mem0 por aluno
 │   │   ├── bncc_rag.py          # RAG sobre corpus BNCC + materiais
@@ -399,6 +400,31 @@ CREATE TABLE study_plans (
 
 CREATE INDEX ix_study_plans_student_created ON study_plans (student_id, created_at);
 
+-- Resoluções de exercícios trazidos pelo aluno (seção 5.7)
+CREATE TABLE exercise_solutions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id),
+    origem VARCHAR(10) NOT NULL,           -- texto | foto
+    enunciado TEXT NOT NULL DEFAULT '',    -- vazio quando veio de foto
+    imagem_key TEXT,
+    -- O que o sistema LEU. Separado do enunciado porque, na foto, pode divergir
+    -- do papel — e é isso que explica uma resolução que saiu errada.
+    enunciado_interpretado TEXT NOT NULL,
+    materia VARCHAR(100) NOT NULL,
+    topico VARCHAR(200) NOT NULL,
+    passos JSONB NOT NULL DEFAULT '[]',    -- numero, titulo, explicacao, expressao
+    resposta_final TEXT NOT NULL,
+    conceito TEXT NOT NULL,
+    erros_comuns JSONB NOT NULL DEFAULT '[]',
+    como_conferir TEXT NOT NULL,
+    exercicio_parecido TEXT NOT NULL,
+    confianca VARCHAR(10) NOT NULL,        -- alta | media | baixa
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX ix_exercise_solutions_student_created
+    ON exercise_solutions (student_id, created_at);
+
 -- pgvector para RAG (corpus BNCC + questões ENEM)
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -673,6 +699,79 @@ posterior: assim o cronograma de um aluno nunca é carregado por conta de outro.
 
 ---
 
+### 5.7 Agente de Resolução (`resolucao_agent.py`)
+
+**Função:** Resolver, com explicação, exercícios que o aluno traz de fora — a
+lista da escola, a prova antiga, a foto do caderno.
+
+> **Este é o único agente do NERV que entrega a resposta.** O `tutor_agent` foi
+> construído para nunca fazer isso ("nunca dá a resposta diretamente — você guia
+> o aluno a descobrir"). A exceção é deliberada: quem chega aqui já travou, e o
+> guia socrático não o tira do lugar.
+
+**Como isso não vira máquina de fazer lição de casa.** A resposta nunca vem
+sozinha. Vem com o porquê de cada passo, o conceito por trás, os erros comuns
+daquele tipo de questão, como conferir o resultado e um exercício parecido para
+praticar. Na tela, a resposta final fica **depois** dos passos: quem só quer
+copiar rola até o fim, quem quer aprender lê o caminho.
+
+**Duas decisões que o caso da foto exigiu:**
+
+- **`enunciado_interpretado`.** Na foto não existe enunciado digitado, e o que o
+  modelo leu pode divergir do papel — sombra, letra ruim, recorte cortando a
+  questão. A leitura é guardada e aparece na tela **antes** dos passos, para o
+  aluno perceber o erro antes de estudar a resolução de outro exercício.
+- **`confianca`** (`alta` | `media` | `baixa`) obriga o modelo a admitir leitura
+  duvidosa em vez de chutar. Resolução correta para o enunciado errado é pior do
+  que não resolver, porque o aluno não desconfia.
+
+A foto é gravada **antes** da chamada ao modelo: se a resolução sair errada, é a
+imagem que explica o porquê.
+
+`passos_ordenados()` reordena e renumera os passos — o modelo às vezes devolve a
+lista fora de ordem ou repetindo o número 1, e a tela mostra o número em destaque.
+
+**Saída (JSON):**
+```json
+{
+  "enunciado_interpretado": "O exercício, escrito pelo modelo, do jeito que entendeu.",
+  "materia": "Matemática",
+  "topico": "Teorema de Pitágoras",
+  "passos": [
+    {
+      "numero": 1,
+      "titulo": "Título curto do passo",
+      "explicacao": "Por que este passo existe e como se faz.",
+      "expressao": "$a^2 = b^2 + c^2$"
+    }
+  ],
+  "resposta_final": "A resposta, direta.",
+  "conceito": "O conceito por trás, para o aluno resolver o próximo sozinho.",
+  "erros_comuns": ["O erro que mais aparece neste tipo de questão."],
+  "como_conferir": "Como o aluno verifica sozinho se o resultado faz sentido.",
+  "exercicio_parecido": "Um parecido, com os números trocados, para praticar.",
+  "confianca": "alta"
+}
+```
+
+| Endpoint | Papel | Ação |
+|---|---|---|
+| `POST /resolucoes` | aluno | Resolve exercício digitado (rate limit 20/hora) |
+| `POST /resolucoes/foto` | aluno | Resolve exercício fotografado (multipart, até 5 MB) |
+| `GET /resolucoes` | aluno | Histórico, sem os passos nem os textos longos |
+| `GET /resolucoes/{id}` | aluno | Resolução completa |
+| `DELETE /resolucoes/{id}` | aluno | Remove |
+
+A rota da foto reaproveita o `analyze_image` do `ai_service` e passa a saída pelo
+mesmo `extract_json` do resto do sistema — já tolerante a cerca de código e ao
+LaTeX dentro do JSON.
+
+**Diferença para o `vision_agent` (5.4):** aquele é instruído a **não** dar a
+resposta ("guie passo a passo, sem dar a resposta direta") e serve à tutoria;
+este resolve. São prompts opostos de propósito, e por isso vivem separados.
+
+---
+
 ## 6. SISTEMA DE MEMÓRIA E PERSONALIZAÇÃO
 
 ### 6.1 Perfil Adaptativo do Aluno
@@ -761,6 +860,7 @@ entrada. `prefers-reduced-motion` desliga tudo isso globalmente no `globals.css`
 - **Exercícios:** Feed de exercícios do nível atual, timer, feedback imediato.
 - **Redação:** Editor de texto com contagem de palavras, envio para correção, histórico de redações com evolução de notas.
 - **Cronograma:** Formulário de objetivo/semanas/dias/minutos, plano gerado semana a semana com blocos por dia (ícone e cor por tipo de atividade), e histórico de planos.
+- **Resolver:** O aluno digita ou fotografa um exercício e recebe a resolução em passos numerados, com a leitura do enunciado antes de tudo, o conceito por trás, os erros comuns, como conferir e um exercício parecido para praticar.
 - **Perfil & Conquistas:** Heatmap de estudo, badges, evolução histórica.
 
 ### 7.2 Interface do Professor (`/professor`)
@@ -838,6 +938,7 @@ RATE_LIMITS = {
     "image_uploads": "10/minute",        # por aluno
     "redacao_submission": "5/hour",      # por aluno
     "cronograma_generation": "5/hour",   # por aluno; plano de semanas inteiras
+    "resolucao_exercicio": "20/hour",    # por aluno; cobre uma lista inteira
 }
 ```
 
@@ -884,6 +985,7 @@ RATE_LIMITS = {
 - [ ] API de integração para sistemas escolares (SIGE, etc.) — aguarda definição dos parceiros
 - [x] LGPD compliance (exportação JSON + deleção/anonimização, próprio usuário e via gestor)
 - [x] Cronogramas de estudo personalizados (`cronograma_agent.py`, tabela `study_plans`, tela `/cronograma`) — entregável do Mês 4
+- [x] Resolução de exercícios com explicação (`resolucao_agent.py`, tabela `exercise_solutions`, tela `/resolver`) — entregável do Mês 5
 
 ---
 

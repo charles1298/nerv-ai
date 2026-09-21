@@ -349,6 +349,88 @@ function resumoCronogramaDemo() {
   };
 }
 
+
+// --- Resolução de exercícios (demonstração) ---
+//
+// Resolução fixa, mas honesta sobre isso: no modo demonstração não há modelo
+// atrás, e o visitante precisa ver a ESTRUTURA da resposta — passos com o
+// porquê, conceito, erros comuns, verificação e exercício parecido.
+
+function resolucaoDemo(origem: "texto" | "foto", enunciado = "") {
+  return {
+    id: "resol-demo-" + Date.now(),
+    origem,
+    enunciado,
+    imagem_url: origem === "foto" ? "/nerv-mark.png" : null,
+    enunciado_interpretado:
+      "Um triângulo retângulo tem catetos medindo 3 cm e 4 cm. Qual é a medida da hipotenusa?",
+    materia: "Matemática",
+    topico: "Teorema de Pitágoras",
+    passos: [
+      {
+        numero: 1,
+        titulo: "Entender o que a questão pede",
+        explicacao:
+          "O triângulo é retângulo e você já tem os dois catetos. Falta o lado maior, a hipotenusa, que é sempre o lado oposto ao ângulo de 90 graus.",
+        expressao: null,
+      },
+      {
+        numero: 2,
+        titulo: "Escrever o Teorema de Pitágoras",
+        explicacao:
+          "O teorema diz que o quadrado da hipotenusa é igual à soma dos quadrados dos catetos. Chamamos a hipotenusa de $a$ e os catetos de $b$ e $c$.",
+        expressao: "$a^2 = b^2 + c^2$",
+      },
+      {
+        numero: 3,
+        titulo: "Substituir os valores do enunciado",
+        explicacao:
+          "Trocamos $b$ por 3 e $c$ por 4. Repare que elevamos ao quadrado antes de somar: somar primeiro e elevar depois dá outro resultado, e é o erro mais comum aqui.",
+        expressao: "$a^2 = 3^2 + 4^2 = 9 + 16 = 25$",
+      },
+      {
+        numero: 4,
+        titulo: "Tirar a raiz para achar a hipotenusa",
+        explicacao:
+          "Como temos $a^2$, precisamos da raiz quadrada para chegar em $a$. A raiz de 25 é 5.",
+        expressao: "$a = \\sqrt{25} = 5$",
+      },
+    ],
+    resposta_final: "A hipotenusa mede 5 cm.",
+    conceito:
+      "O Teorema de Pitágoras vale em qualquer triângulo retângulo. Ele relaciona os três lados, então, sabendo dois, você sempre descobre o terceiro. A hipotenusa é sempre o maior lado.",
+    erros_comuns: [
+      "Somar os catetos antes de elevar ao quadrado. Aqui daria 7 ao quadrado, que é 49, e não 25.",
+      "Esquecer de tirar a raiz no fim e responder 25 em vez de 5.",
+      "Usar a hipotenusa como se fosse cateto quando o enunciado dá o lado maior.",
+    ],
+    como_conferir:
+      "Eleve sua resposta ao quadrado e veja se bate com a soma dos quadrados dos catetos: 5 ao quadrado é 25, e 9 mais 16 também é 25. Confere.",
+    exercicio_parecido:
+      "Tente este: um triângulo retângulo tem catetos de 6 cm e 8 cm. Qual é a hipotenusa? A resposta deve dar 10 cm.",
+    confianca: origem === "foto" ? "media" : "alta",
+    created_at: new Date().toISOString(),
+  };
+}
+
+export async function demoResolucaoFoto() {
+  await delay(900);
+  return resolucaoDemo("foto") as never;
+}
+
+function resumoResolucaoDemo() {
+  const r = resolucaoDemo("texto");
+  return {
+    id: r.id,
+    origem: r.origem,
+    materia: r.materia,
+    topico: r.topico,
+    enunciado_interpretado: r.enunciado_interpretado,
+    resposta_final: r.resposta_final,
+    created_at: r.created_at,
+  };
+}
+
 export async function demoRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const body = init.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : {};
@@ -402,6 +484,12 @@ export async function demoRequest<T>(path: string, init: RequestInit = {}): Prom
   if (path === "/cronogramas") return [resumoCronogramaDemo()] as T;
   if (path.startsWith("/cronogramas/") && method === "DELETE") return undefined as T;
   if (path.startsWith("/cronogramas/")) return cronogramaDemo({}) as T;
+
+  if (path === "/resolucoes" && method === "POST")
+    return resolucaoDemo("texto", String(body.enunciado ?? "")) as T;
+  if (path === "/resolucoes") return [resumoResolucaoDemo()] as T;
+  if (path.startsWith("/resolucoes/") && method === "DELETE") return undefined as T;
+  if (path.startsWith("/resolucoes/")) return resolucaoDemo("texto") as T;
 
   if (path === "/lgpd/export") return { user: loadDemoUser(), aviso: "Exportação de demonstração." } as T;
 

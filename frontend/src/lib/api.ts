@@ -1,7 +1,13 @@
 // Cliente HTTP do backend NERV AI — injeta o JWT do Zustand em toda chamada.
 
 import { useAuthStore } from "@/store/auth";
-import { DEMO, demoRequest, demoStreamChat, demoUpload } from "@/lib/demo";
+import {
+  DEMO,
+  demoRequest,
+  demoResolucaoFoto,
+  demoStreamChat,
+  demoUpload,
+} from "@/lib/demo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -225,6 +231,48 @@ export interface CronogramaCreateInput {
   materias: string[];
 }
 
+export type OrigemResolucao = "texto" | "foto";
+
+/** Quanto o sistema confia na leitura do enunciado — importa sobretudo na foto. */
+export type ConfiancaResolucao = "alta" | "media" | "baixa";
+
+export interface PassoResolucao {
+  numero: number;
+  titulo: string;
+  explicacao: string;
+  /** LaTeX da conta daquele passo. Null quando o passo não tem conta. */
+  expressao: string | null;
+}
+
+export interface ResolucaoPublic {
+  id: string;
+  origem: OrigemResolucao;
+  enunciado: string;
+  imagem_url: string | null;
+  enunciado_interpretado: string;
+  materia: string;
+  topico: string;
+  passos: PassoResolucao[];
+  resposta_final: string;
+  conceito: string;
+  erros_comuns: string[];
+  como_conferir: string;
+  exercicio_parecido: string;
+  confianca: ConfiancaResolucao;
+  created_at: string;
+}
+
+/** Item da listagem — sem os passos nem os textos longos. */
+export interface ResolucaoResumo {
+  id: string;
+  origem: OrigemResolucao;
+  materia: string;
+  topico: string;
+  enunciado_interpretado: string;
+  resposta_final: string;
+  created_at: string;
+}
+
 export interface StudentCard {
   student_id: string;
   name: string;
@@ -327,7 +375,42 @@ export const api = {
   getCronograma: (id: string) => request<CronogramaPublic>(`/cronogramas/${id}`),
   deleteCronograma: (id: string) =>
     request<void>(`/cronogramas/${id}`, { method: "DELETE" }),
+  resolverExercicio: (enunciado: string, duvida = "") =>
+    request<ResolucaoPublic>("/resolucoes", {
+      method: "POST",
+      body: JSON.stringify({ enunciado, duvida }),
+    }),
+  listResolucoes: () => request<ResolucaoResumo[]>("/resolucoes"),
+  getResolucao: (id: string) => request<ResolucaoPublic>(`/resolucoes/${id}`),
+  deleteResolucao: (id: string) =>
+    request<void>(`/resolucoes/${id}`, { method: "DELETE" }),
 };
+
+
+/** Envia a foto do exercício para resolução (multipart, como o upload da tutoria). */
+export async function resolverExercicioPorFoto(
+  file: File,
+  duvida = "",
+): Promise<ResolucaoPublic> {
+  if (DEMO) return demoResolucaoFoto();
+
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("duvida", duvida);
+
+  const res = await fetch(`${API_URL}/resolucoes/foto`, {
+    method: "POST",
+    // Sem Content-Type de propósito: o browser precisa definir o boundary.
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(res.status, body.detail ?? `Erro ${res.status}`);
+  }
+  return res.json() as Promise<ResolucaoPublic>;
+}
 
 /** Upload de foto (multipart) com análise por visão. */
 export async function uploadImage(
