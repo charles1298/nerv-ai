@@ -266,3 +266,41 @@ class StudyPlan(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ExerciseSolution(Base):
+    """Resolução explicada de um exercício trazido pelo aluno (seção 5.7).
+
+    Diferente de `exercises`, que guarda o que a plataforma gerou, aqui fica o
+    que veio de fora: a lista da escola, a prova antiga, a foto do caderno.
+
+    `enunciado_interpretado` é separado de `enunciado` de propósito. Na foto não
+    existe enunciado digitado, e o que o sistema leu pode não ser o que está no
+    papel — guardar a leitura permite mostrá-la ao aluno e explica, depois, uma
+    resolução que tenha saído errada.
+    """
+
+    __tablename__ = "exercise_solutions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    student_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+
+    origem: Mapped[str] = mapped_column(String(10))  # texto | foto
+    enunciado: Mapped[str] = mapped_column(Text, default="")
+    imagem_key: Mapped[str | None] = mapped_column(Text)
+
+    enunciado_interpretado: Mapped[str] = mapped_column(Text)
+    materia: Mapped[str] = mapped_column(String(100))
+    topico: Mapped[str] = mapped_column(String(200))
+
+    passos: Mapped[list] = mapped_column(JsonColumn, default=list)
+    resposta_final: Mapped[str] = mapped_column(Text)
+    conceito: Mapped[str] = mapped_column(Text)
+    erros_comuns: Mapped[list] = mapped_column(JsonColumn, default=list)
+    como_conferir: Mapped[str] = mapped_column(Text)
+    exercicio_parecido: Mapped[str] = mapped_column(Text)
+    confianca: Mapped[str] = mapped_column(String(10), default="alta")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

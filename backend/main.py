@@ -26,6 +26,7 @@ from routers import (
     gamification,
     lgpd,
     redacoes,
+    resolucoes,
     reports,
     sessions,
     students,
@@ -74,6 +75,7 @@ app.include_router(sessions.router)
 app.include_router(exercises.router)
 app.include_router(upload.router)
 app.include_router(redacoes.router)
+app.include_router(resolucoes.router)
 app.include_router(gamification.router)
 app.include_router(reports.router)
 app.include_router(lgpd.router)
