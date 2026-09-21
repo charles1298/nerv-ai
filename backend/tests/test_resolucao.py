@@ -28,8 +28,11 @@ def _resolucao(passos: list[dict] | None = None, confianca: str = "alta") -> dic
         "enunciado_interpretado": "Calcular a hipotenusa de um triângulo de catetos 3 e 4.",
         "materia": "Matemática",
         "topico": "Teorema de Pitágoras",
+        # `is None` e nao `or`: lista vazia e' falsy e cairia no padrao,
+        # fazendo o teste de "sem passos" testar a lista cheia.
         "passos": passos
-        or [
+        if passos is not None
+        else [
             {
                 "numero": 1,
                 "titulo": "Identificar o que a questão pede",
