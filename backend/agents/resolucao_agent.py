@@ -28,7 +28,9 @@ class ResolucaoGenerationError(RuntimeError):
     """O modelo não devolveu uma resolução válida nas tentativas disponíveis."""
 
 
-_FORMATO = """Responda APENAS com JSON neste formato:
+# String raw: a instrucao cita comandos LaTeX como \times. Sem o r, o \t viraria
+# TAB de verdade e o modelo leria "multiplicacao e <TAB>imes".
+_FORMATO = r"""Responda APENAS com JSON neste formato:
 {
   "enunciado_interpretado": "O exercício, escrito por você, do jeito que entendeu.",
   "materia": "Matemática",
@@ -54,8 +56,11 @@ Regras do conteúdo:
 - Cada passo explica o PORQUÊ, não só a conta. "Elevamos os dois lados ao
   quadrado para eliminar a raiz" ensina; "elevando ao quadrado" não ensina nada.
 - Quebre em passos pequenos. É melhor seis passos curtos que dois enormes.
-- "expressao" leva só a conta daquele passo, em LaTeX. Se o passo não tem conta
-  (interpretar o enunciado, por exemplo), deixe null.
+- "expressao" leva só a conta daquele passo, SEMPRE em LaTeX inline entre $...$.
+  Se o passo não tem conta (interpretar o enunciado, por exemplo), deixe null.
+  Escreva como se escreve no caderno: multiplicação é \times ou \cdot, nunca
+  asterisco; divisão é \div ou fração; decimal com vírgula, como 0{,}15.
+  Exemplo bom: "$800 \times 0{,}15 = 120$". Exemplo ruim: "800 * 0,15 = 120".
 - "conceito" é o que o aluno precisa entender para resolver sozinho o próximo.
 - "confianca" é sua honestidade sobre a leitura do enunciado: use "baixa" quando
   faltar informação ou a imagem estiver ilegível, e diga em
