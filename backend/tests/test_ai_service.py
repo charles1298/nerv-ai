@@ -97,6 +97,42 @@ async def test_unicode_escapado_sobrevive():
     assert extract_json(raw)["texto"] == "café com açúcar"
 
 
+# --- LaTeX que o JSON aceita e destrói em silêncio ---
+#
+# Pior que o grupo acima: aqui o documento é VÁLIDO. `\t` de `\times` é escape
+# de JSON, então o parse passa e o valor chega com um TAB no meio. A tela do
+# aluno mostrava `1.200imes0,15` — sem nenhum erro em lugar nenhum.
+
+
+async def test_times_nao_vira_tab():
+    r"""O caso que apareceu no ar, na resolução de um exercício de porcentagem."""
+    raw = r'{"expressao": "$1.200 \times 0{,}15 = 180$"}'
+    assert extract_json(raw)["expressao"] == r"$1.200 \times 0{,}15 = 180$"
+
+
+async def test_frac_nao_vira_avanco_de_pagina():
+    r"""`\f` é escape válido, e fração é o comando mais comum em matemática."""
+    raw = r'{"expressao": "$\frac{3}{4}$"}'
+    assert extract_json(raw)["expressao"] == r"$\frac{3}{4}$"
+
+
+async def test_neq_nao_vira_quebra_de_linha():
+    raw = r'{"expressao": "$x \neq 0$"}'
+    assert extract_json(raw)["expressao"] == r"$x \neq 0$"
+
+
+async def test_quebra_de_linha_de_verdade_continua_quebrando():
+    r"""O reparo só vale entre cifrões: em prosa, `\ne` é newline mais "e"."""
+    raw = '{"texto": "primeira linha\\ne a segunda"}'
+    assert extract_json(raw)["texto"] == "primeira linha\ne a segunda"
+
+
+async def test_comando_ja_escapado_na_matematica_nao_dobra():
+    r"""Modelo que escapou certo não pode virar `\\frac` — isso é quebra de linha no LaTeX."""
+    raw = '{"expressao": "$\\\\times$"}'
+    assert extract_json(raw)["expressao"] == r"$\times$"
+
+
 async def test_latex_dentro_de_cerca_de_codigo():
     """Os dois problemas juntos: cerca de código e barra solta."""
     raw = '```json\n{"q": "a área é $x^2\\,cm^2$"}\n```'

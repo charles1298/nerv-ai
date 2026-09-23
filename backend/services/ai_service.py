@@ -50,6 +50,38 @@ def _repara_escapes(texto: str) -> str:
     )
 
 
+# Um trecho de matemática dentro do JSON bruto: tudo entre dois cifrões. Aspas e
+# quebra de linha fechariam a string JSON antes disso, então não entram.
+_MATEMATICA = re.compile(r'\$[^$"\n]*\$')
+
+# Uma sequência de barras seguida do nome de um comando LaTeX.
+_COMANDO_LATEX = re.compile(r"(\\+)([a-zA-Z]+)")
+
+
+def _repara_latex(texto: str) -> str:
+    r"""Protege os comandos LaTeX que o JSON engoliria em silêncio.
+
+    `\times`, `\frac`, `\neq`, `\beta` e `\right` começam com as letras dos
+    escapes válidos de JSON. O documento é aceito sem erro nenhum e o valor
+    chega com um TAB no lugar de `\t` — a tela mostrava `1.200imes0,15`. Como
+    nada falha, `_repara_escapes` nunca entra em cena: o conserto tem de vir
+    antes da primeira tentativa de parse, não depois dela.
+
+    Só age entre cifrões, onde toda barra é LaTeX. Fora dali `\n` é quebra de
+    linha de verdade, e "preço\ne depois" não pode virar comando.
+
+    Número ímpar de barras é o caso a corrigir. Par já está escapado certo, e
+    dobrar de novo transformaria `\\frac` em quebra de linha do LaTeX.
+    """
+
+    def dobra(m: re.Match[str]) -> str:
+        barras, comando = m.group(1), m.group(2)
+        return (barras + "\\" if len(barras) % 2 else barras) + comando
+
+    return _MATEMATICA.sub(lambda m: _COMANDO_LATEX.sub(dobra, m.group(0)), texto)
+
+
+
 
 class AINotConfigured(RuntimeError):
     """AI_API_KEY ausente. Erro explícito em vez de falha obscura no request."""
@@ -95,9 +127,10 @@ def extract_json(raw: str) -> dict:
 
     for candidato in tentativas:
         limpo = candidato.strip()
-        # A versão reparada só entra em cena se a original falhar: JSON que já
-        # está válido nunca passa pelo reparo.
-        for texto in (limpo, _repara_escapes(limpo)):
+        # O reparo de LaTeX vem primeiro porque o caso dele NÃO falha no parse:
+        # a barra-t de "\times" é escape válido de JSON e viraria TAB sem erro
+        # nenhum. Os outros dois só entram se o parse falhar de verdade.
+        for texto in (_repara_latex(limpo), limpo, _repara_escapes(_repara_latex(limpo))):
             try:
                 parsed = json.loads(texto)
             except (json.JSONDecodeError, ValueError):
