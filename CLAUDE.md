@@ -200,6 +200,14 @@ Três decisões do módulo que não são óbvias:
 - **`extract_json()` é tolerante de propósito.** Modelos menores devolvem o JSON
   cercado por ```json ou embrulhado em prosa. A extração tenta JSON puro, depois
   o conteúdo da cerca, depois o trecho da primeira `{` à última `}`.
+- **Há dois reparos de barra invertida, e eles resolvem problemas opostos.**
+  `_repara_escapes` conserta o JSON que **falha** no parse (`\%`, `\,`, `R\$` não
+  são escapes válidos). `_repara_latex` conserta o que **passa** no parse e chega
+  corrompido: `\times`, `\frac`, `\neq`, `\beta` e `\right` começam com as letras
+  dos escapes válidos, então `\t` de `\times` vira TAB sem erro nenhum e a tela
+  mostra `1.200imes0,15` — foi o que apareceu no teste da foto em 22/09/2026. Por
+  isso ele roda **antes** da primeira tentativa, e só entre cifrões: em prosa,
+  `\n` é quebra de linha de verdade.
 - **`response_format` tem fallback.** Provedores compatíveis implementam o campo
   de formas diferentes; em `BadRequestError` a chamada é repetida sem ele, já que
   o prompt também pede JSON.
